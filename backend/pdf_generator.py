@@ -6,7 +6,6 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-# --- CORRECCIÓN DE IMPORTS ---
 import models
 
 def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
@@ -25,7 +24,8 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     simbolo = "S/" if cotizacion.moneda == "SOLES" else "$"
 
     try:
-        logo_path = f"backend/logos/{user.logo_filename}" if user.logo_filename else None
+        # --- CORRECCIÓN DE RUTA ---
+        logo_path = f"logos/{user.logo_filename}" if user.logo_filename else None
         logo = Image(logo_path, width=151, height=76) if logo_path else ""
     except Exception:
         logo = ""
