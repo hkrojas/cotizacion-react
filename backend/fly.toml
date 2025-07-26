@@ -1,0 +1,21 @@
+# Este archivo será generado por `fly launch`. Esta es una referencia.
+# El nombre de la app y la región serán asignados durante el proceso.
+
+app = 'tu-app-backend'
+primary_region = 'iad' # Esta es una región de ejemplo, puedes elegir la más cercana
+
+[build]
+  dockerfile = 'Dockerfile' # Le dice a Fly.io que use nuestro Dockerfile
+
+[http_service]
+  internal_port = 8080 # El puerto que expusimos en el Dockerfile
+  force_https = true
+  auto_stop_machines = true # Para la máquina si no hay tráfico para ahorrar recursos
+  auto_start_machines = true # Inicia la máquina automáticamente con el tráfico
+  min_machines_running = 0 # En el plan gratuito, esto debe ser 0 o 1
+  processes = ['app']
+
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256 # Memoria suficiente para el plan gratuito
