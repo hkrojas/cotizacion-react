@@ -19,7 +19,8 @@ from database import SessionLocal, engine
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-app.mount("/logos", StaticFiles(directory="backend/logos"), name="logos")
+# --- CORRECCIÓN DE RUTA ---
+app.mount("/logos", StaticFiles(directory="logos"), name="logos")
 
 # --- CONFIGURACIÓN DE CORS PARA PRODUCCIÓN ---
 origins = [
@@ -152,7 +153,7 @@ def update_profile(profile_data: schemas.ProfileUpdate, db: Session = Depends(ge
 
 @app.post("/profile/logo/", response_model=schemas.User)
 def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: schemas.User = Depends(get_current_user)):
-    logo_dir = "backend/logos"
+    logo_dir = "logos" # CORREGIDO
     os.makedirs(logo_dir, exist_ok=True)
     file_extension = file.filename.split('.')[-1]
     filename = f"user_{current_user.id}_logo.{file_extension}"
