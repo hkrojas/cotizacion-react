@@ -1,16 +1,29 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import ClientForm from '../components/ClientForm';
 import ProductsTable from '../components/ProductsTable';
 import ThemeToggle from '../components/ThemeToggle';
 import CotizacionesList from '../components/CotizacionesList';
 
+const parseApiError = (errorData) => {
+    if (errorData.detail) {
+        if (typeof errorData.detail === 'string') {
+            return errorData.detail;
+        }
+        if (Array.isArray(errorData.detail)) {
+            return errorData.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join('; ');
+        }
+    }
+    return 'Ocurrió un error desconocido.';
+};
+
 const DashboardPage = () => {
     const { user, logout, token } = useContext(AuthContext);
-    const [activeTab, setActiveTab] = useState('crear'); // Estado para la pestaña activa
+    const { addToast } = useContext(ToastContext);
+    const [activeTab, setActiveTab] = useState('crear');
     
-    // Estados para el formulario de creación
     const [clientData, setClientData] = useState({
         nombre_cliente: '', direccion_cliente: '', tipo_documento: 'DNI',
         nro_documento: '', moneda: 'SOLES',
@@ -18,11 +31,9 @@ const DashboardPage = () => {
     const [products, setProducts] = useState([
         { descripcion: '', unidades: 1, precio_unitario: 0, total: 0 },
     ]);
-    const [statusMessage, setStatusMessage] = useState('');
     const [loadingConsulta, setLoadingConsulta] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    // --- Funciones para el formulario ---
     const handleClientChange = (e) => {
         const { name, value } = e.target;
         setClientData(prev => ({ ...prev, [name]: value }));
@@ -30,18 +41,14 @@ const DashboardPage = () => {
 
     const handleConsultarDatos = async () => {
         if (!clientData.nro_documento) {
-            setStatusMessage('Por favor, ingrese un número de documento.');
+            addToast('Por favor, ingrese un número de documento.', 'error');
             return;
         }
         setLoadingConsulta(true);
-        setStatusMessage('Consultando datos...');
         try {
             const response = await fetch('http://127.0.0.1:8000/consultar-documento', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
                     tipo_documento: clientData.tipo_documento,
                     numero_documento: clientData.nro_documento
@@ -57,9 +64,9 @@ const DashboardPage = () => {
                 nombre_cliente: data.nombre,
                 direccion_cliente: data.direccion
             }));
-            setStatusMessage('Datos encontrados con éxito.');
+            addToast('Datos encontrados con éxito.', 'success');
         } catch (error) {
-            setStatusMessage(`Error: ${error.message}`);
+            addToast(error.message, 'error');
         } finally {
             setLoadingConsulta(false);
         }
@@ -87,34 +94,39 @@ const DashboardPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setStatusMessage('Creando cotización...');
         const monto_total = products.reduce((sum, p) => sum + p.total, 0);
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
+        
         try {
             const response = await fetch('http://127.0.0.1:8000/cotizaciones/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
                 body: JSON.stringify(cotizacionData)
             });
-            if (!response.ok) { const errData = await response.json(); throw new Error(errData.detail || 'Error al crear la cotización.'); }
+            if (!response.ok) { 
+                const errData = await response.json();
+                const errorMessage = parseApiError(errData);
+                throw new Error(errorMessage);
+            }
             const newCotizacion = await response.json();
-            setStatusMessage(`¡Cotización N° ${newCotizacion.numero_cotizacion} creada con éxito!`);
+            addToast(`¡Cotización N° ${newCotizacion.numero_cotizacion} creada!`, 'success');
             setClientData({ nombre_cliente: '', direccion_cliente: '', tipo_documento: 'DNI', nro_documento: '', moneda: 'SOLES' });
             setProducts([{ descripcion: '', unidades: 1, precio_unitario: 0, total: 0 }]);
-            setRefreshTrigger(prev => prev + 1); // Refresca la lista en la otra pestaña
-            setActiveTab('ver'); // Cambia a la pestaña de visualización
+            setRefreshTrigger(prev => prev + 1);
+            setActiveTab('ver');
         } catch (error) {
-            setStatusMessage(`Error: ${error.message}`);
+            addToast(error.message, 'error');
         }
     };
 
-    // Estilos para las pestañas
-    const tabStyle = "px-4 py-2 font-semibold rounded-t-lg transition-colors duration-300 focus:outline-none";
-    const activeTabStyle = "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400";
-    const inactiveTabStyle = "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600";
+    // --- ESTILOS DE PESTAÑAS MEJORADOS ---
+    const tabStyle = "px-6 py-3 font-semibold text-base border-b-2 transition-colors duration-300 focus:outline-none";
+    const activeTabStyle = "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400";
+    const inactiveTabStyle = "border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
 
     return (
-        <div className="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+        // --- FONDO DE PÁGINA ACTUALIZADO ---
+        <div className="bg-gray-100 dark:bg-dark-bg-body min-h-screen transition-colors duration-300">
             <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md sticky top-0 z-10">
                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
@@ -134,7 +146,10 @@ const DashboardPage = () => {
                                     <Link to="/profile" className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300 transform hover:scale-105">
                                         Mi Perfil
                                     </Link>
-                                    <button onClick={logout} className="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                                    <button 
+                                        onClick={logout} 
+                                        className="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
+                                    >
                                         Cerrar Sesión
                                     </button>
                                 </div>
@@ -146,8 +161,8 @@ const DashboardPage = () => {
             
             <main className="p-4 sm:p-8">
                 <div className="w-full max-w-6xl mx-auto">
-                    {/* Navegación de Pestañas */}
-                    <div className="flex border-b border-gray-200 dark:border-gray-700">
+                    {/* --- CONTENEDOR DE PESTAÑAS REDISEÑADO --- */}
+                    <div className="flex border-b border-gray-300 dark:border-gray-700">
                         <button onClick={() => setActiveTab('crear')} className={`${tabStyle} ${activeTab === 'crear' ? activeTabStyle : inactiveTabStyle}`}>
                             Crear Cotización
                         </button>
@@ -156,18 +171,20 @@ const DashboardPage = () => {
                         </button>
                     </div>
 
-                    {/* Contenido de las Pestañas */}
-                    <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-b-lg rounded-r-lg shadow-xl">
+                    {/* --- TARJETA DE CONTENIDO AJUSTADA --- */}
+                    <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-b-lg shadow-xl">
                         {activeTab === 'crear' && (
                             <form onSubmit={handleSubmit}>
                                 <ClientForm clientData={clientData} handleClientChange={handleClientChange} handleConsultar={handleConsultarDatos} loadingConsulta={loadingConsulta} />
                                 <ProductsTable products={products} handleProductChange={handleProductChange} addProduct={addProduct} removeProduct={removeProduct} />
                                 <div className="mt-8 text-right">
-                                    <button type="submit" className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-md transition text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                                    <button 
+                                        type="submit" 
+                                        className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-md transition-all duration-300 text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
+                                    >
                                         Guardar Cotización
                                     </button>
                                 </div>
-                                {statusMessage && <p className="mt-4 text-center font-semibold text-blue-600 dark:text-blue-400">{statusMessage}</p>}
                             </form>
                         )}
                         {activeTab === 'ver' && (

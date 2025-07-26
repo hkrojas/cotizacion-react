@@ -1,27 +1,39 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { ToastContext } from '../context/ToastContext';
 import ClientForm from './ClientForm';
 import ProductsTable from './ProductsTable';
 import LoadingSpinner from './LoadingSpinner';
 
+// Función para parsear errores de FastAPI
+const parseApiError = (errorData) => {
+    if (errorData.detail) {
+        if (typeof errorData.detail === 'string') {
+            return errorData.detail;
+        }
+        if (Array.isArray(errorData.detail)) {
+            return errorData.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join('; ');
+        }
+    }
+    return 'Ocurrió un error desconocido.';
+};
+
 const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
     const { token } = useContext(AuthContext);
+    const { addToast } = useContext(ToastContext);
     const [clientData, setClientData] = useState(null);
     const [products, setProducts] = useState([]);
-    const [statusMessage, setStatusMessage] = useState('');
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-
+    
     useEffect(() => {
         if (!cotizacionId) return;
         const fetchCotizacionData = async () => {
             setLoading(true);
-            setError('');
             try {
                 const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${cotizacionId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (!response.ok) throw new Error('No se pudieron cargar los datos.');
+                if (!response.ok) throw new Error('No se pudieron cargar los datos de la cotización.');
                 const data = await response.json();
                 setClientData({
                     nombre_cliente: data.nombre_cliente,
@@ -32,13 +44,14 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
                 });
                 setProducts(data.productos.map(p => ({...p, total: p.unidades * p.precio_unitario})));
             } catch (err) {
-                setError(err.message);
+                addToast(err.message, 'error');
+                closeModal(); // Cierra el modal si hay un error al cargar
             } finally {
                 setLoading(false);
             }
         };
         fetchCotizacionData();
-    }, [cotizacionId, token]);
+    }, [cotizacionId, token, addToast, closeModal]);
 
     const handleClientChange = (e) => {
         const { name, value } = e.target;
@@ -67,30 +80,31 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setStatusMessage('Actualizando cotización...');
         const monto_total = products.reduce((sum, p) => sum + p.total, 0);
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
+        
         try {
             const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${cotizacionId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(cotizacionData)
             });
-            if (!response.ok) throw new Error('Error al actualizar.');
-            setStatusMessage('¡Actualizado con éxito!');
+            if (!response.ok) {
+                const errData = await response.json();
+                const errorMessage = parseApiError(errData);
+                throw new Error(errorMessage);
+            }
+            addToast('¡Cotización actualizada con éxito!', 'success');
             onUpdate();
-            setTimeout(closeModal, 1500);
+            closeModal();
         } catch (err) {
-            setStatusMessage(`Error: ${err.message}`);
+            addToast(err.message, 'error');
         }
     };
 
     const renderContent = () => {
         if (loading) {
             return <LoadingSpinner message="Cargando datos de la cotización..." />;
-        }
-        if (error) {
-            return <p className="text-center text-red-500 p-8">{error}</p>;
         }
         if (clientData) {
             return (
@@ -113,7 +127,6 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
                             </button>
                         </div>
                     </form>
-                    {statusMessage && <p className="mt-4 text-center font-semibold text-blue-600 dark:text-blue-400">{statusMessage}</p>}
                 </>
             );
         }

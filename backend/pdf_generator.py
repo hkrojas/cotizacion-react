@@ -10,7 +10,6 @@ from . import models
 
 def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     buffer = io.BytesIO()
-    # Configuración del documento
     margen_izq = 20
     margen_der = 20
     ancho_total = letter[0] - margen_izq - margen_der
@@ -21,11 +20,9 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     
     styles = getSampleStyleSheet()
     
-    # --- DATOS DINÁMICOS ---
     color_principal = colors.HexColor(user.primary_color or '#004aad')
     simbolo = "S/" if cotizacion.moneda == "SOLES" else "$"
 
-    # 1. TABLA PRINCIPAL (logo y datos)
     try:
         logo_path = f"backend/logos/{user.logo_filename}" if user.logo_filename else None
         logo = Image(logo_path, width=151, height=76) if logo_path else ""
@@ -38,31 +35,18 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
         ["", f"{user.email}\n{user.business_phone or ''}", f"N° {cotizacion.numero_cotizacion}"]
     ]
     
-    tabla_principal = Table(data_principal, colWidths=[
-        ancho_total * 0.30,
-        ancho_total * 0.50,
-        ancho_total * 0.20
-    ])
-    
-    estilo_principal = TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('SPAN', (0, 0), (0, -1)),
-        ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 1), (2, 1), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 2), (2, 2), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
+    tabla_principal = Table(data_principal, colWidths=[ancho_total * 0.30, ancho_total * 0.50, ancho_total * 0.20])
+    tabla_principal.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('SPAN', (0, 0), (0, -1)), ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 1), (2, 1), 'Helvetica-Bold'), ('FONTNAME', (2, 2), (2, 2), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11), ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ])
-    tabla_principal.setStyle(estilo_principal)
+    ]))
 
-    # 2. TABLA CLIENTE
     fecha_emision = cotizacion.fecha_creacion.strftime("%d/%m/%Y")
     fecha_vencimiento = (cotizacion.fecha_creacion + relativedelta(months=1)).strftime("%d/%m/%Y")
-    
     nombre_cliente_p = Paragraph(cotizacion.nombre_cliente, styles['Normal'])
     direccion_cliente_p = Paragraph(cotizacion.direccion_cliente, styles['Normal'])
 
@@ -72,64 +56,32 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
         ["Dirección:", direccion_cliente_p, " Moneda:", cotizacion.moneda]
     ]
     
-    tabla_cliente = Table(data_cliente, colWidths=[
-        ancho_total * 0.10,
-        ancho_total * 0.60,
-        ancho_total * 0.15,
-        ancho_total * 0.15
-    ])
-    
-    estilo_cliente = TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('LINEABOVE', (0, 0), (-1, 0), 1.5, color_principal),
-        ('LINEBELOW', (0, -1), (-1, -1), 1.5, color_principal),
-        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ])
-    tabla_cliente.setStyle(estilo_cliente)
+    tabla_cliente = Table(data_cliente, colWidths=[ancho_total * 0.10, ancho_total * 0.60, ancho_total * 0.15, ancho_total * 0.15])
+    tabla_cliente.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'), ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('LINEABOVE', (0, 0), (-1, 0), 1.5, color_principal), ('LINEBELOW', (0, -1), (-1, -1), 1.5, color_principal),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3), ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
 
-    # 3. TABLA PRODUCTOS
-    data_productos = [
-        ["Descripción", "Cantidad", "P.Unit", "IGV", "Precio"]
-    ]
+    data_productos = [["Descripción", "Cantidad", "P.Unit", "IGV", "Precio"]]
     for prod in cotizacion.productos:
         igv_producto = prod.total * (18 / 118)
         data_productos.append([
-            Paragraph(prod.descripcion, styles['Normal']),
-            prod.unidades,
-            f"{simbolo} {prod.precio_unitario:.2f}",
-            f"{simbolo} {igv_producto:.2f}",
-            f"{simbolo} {prod.total:.2f}"
+            Paragraph(prod.descripcion, styles['Normal']), prod.unidades,
+            f"{simbolo} {prod.precio_unitario:.2f}", f"{simbolo} {igv_producto:.2f}", f"{simbolo} {prod.total:.2f}"
         ])
     
-    tabla_productos = Table(data_productos, colWidths=[
-        ancho_total * 0.40,
-        ancho_total * 0.15,
-        ancho_total * 0.15,
-        ancho_total * 0.15,
-        ancho_total * 0.15
-    ])
-    
-    estilo_productos = TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('BACKGROUND', (0, 0), (-1, 0), color_principal),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('LINEBELOW', (0, -1), (-1, -1), 1.5, color_principal),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ])
-    tabla_productos.setStyle(estilo_productos)
+    tabla_productos = Table(data_productos, colWidths=[ancho_total * 0.40, ancho_total * 0.15, ancho_total * 0.15, ancho_total * 0.15, ancho_total * 0.15])
+    tabla_productos.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'), ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, 0), color_principal), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('LINEBELOW', (0, -1), (-1, -1), 1.5, color_principal),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
 
-    # 4. TABLA TOTALES
     total_igv = cotizacion.monto_total * (18 / 118)
     total_gravado = cotizacion.monto_total - total_igv
     data_total = [
@@ -138,55 +90,44 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
         ["Importe Total", f"{simbolo} {cotizacion.monto_total:.2f}"]
     ]
     
-    tabla_total = Table(data_total, colWidths=[
-        ancho_total * 0.85,
-        ancho_total * 0.15
-    ])
-    
-    estilo_total = TableStyle([
-        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('FONTNAME', (0, 2), (1, 2), 'Helvetica-Bold'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ])
-    tabla_total.setStyle(estilo_total)
+    tabla_total = Table(data_total, colWidths=[ancho_total * 0.85, ancho_total * 0.15])
+    tabla_total.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'), ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10), ('FONTNAME', (0, 2), (1, 2), 'Helvetica-Bold'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
 
-    # 5. IMPORTE TOTAL A PAGAR
-    data_monto = [
-        [f"IMPORTE TOTAL A PAGAR {simbolo} {cotizacion.monto_total:.2f}"],
-    ]
+    data_monto = [[f"IMPORTE TOTAL A PAGAR {simbolo} {cotizacion.monto_total:.2f}"]]
     tabla_monto = Table(data_monto, colWidths=[ancho_total])
-    estilo_monto = TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('LINEABOVE', (0, 0), (-1, 0), 1.5, color_principal),
-        ('LINEBELOW', (0, -1), (-1, -1), 1.5, color_principal),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ])
-    tabla_monto.setStyle(estilo_monto)
+    tabla_monto.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('LINEABOVE', (0, 0), (-1, 0), 1.5, color_principal), ('LINEBELOW', (0, -1), (-1, -1), 1.5, color_principal),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
 
-    # 6. TÉRMINOS Y DATOS BANCARIOS
+    # --- LÓGICA ACTUALIZADA PARA DATOS PERSONALIZABLES ---
+    # Usamos los datos del usuario en lugar de valores fijos
     note_1_color = colors.HexColor(user.pdf_note_1_color or "#FF0000")
     style_red_bold = ParagraphStyle(name='RedBold', parent=styles['Normal'], textColor=note_1_color, fontName='Helvetica-Bold')
     terminos_1 = Paragraph(user.pdf_note_1 or "", style_red_bold)
     terminos_2 = Paragraph(user.pdf_note_2 or "", styles['Normal'])
     
+    # Construimos dinámicamente la información bancaria
     bank_info_text = "<b>Datos para la Transferencia</b><br/>"
     if user.bank_accounts and isinstance(user.bank_accounts, list):
         for account in user.bank_accounts:
-            bank_info_text += f"<b>{account.get('banco', '')}</b><br/>"
-            bank_info_text += f"Cuenta: {account.get('cuenta', '')}<br/>"
-            bank_info_text += f"CCI: {account.get('cci', '')}<br/><br/>"
+            # Añadimos solo si el banco tiene nombre
+            if account.get('banco'):
+                bank_info_text += f"<b>{account.get('banco', '')}</b><br/>"
+                if account.get('cuenta'):
+                    bank_info_text += f"Cuenta: {account.get('cuenta', '')}<br/>"
+                if account.get('cci'):
+                    bank_info_text += f"CCI: {account.get('cci', '')}<br/>"
+                bank_info_text += "<br/>" # Espacio entre cuentas
     banco_info = Paragraph(bank_info_text, styles['Normal'])
 
-    # 7. RECTÁNGULO (función onFirstPage)
     def agregar_rectangulo_personalizado(canvas, doc):
         canvas.saveState()
         x = margen_izq + (ancho_total * 0.80)
@@ -198,20 +139,10 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
         canvas.roundRect(x, y, ancho, alto, 5, stroke=1, fill=0)
         canvas.restoreState()
     
-    # Construir PDF
     elementos = [
-        tabla_principal,
-        Spacer(1, 20),
-        tabla_cliente,
-        Spacer(1, 20),
-        tabla_productos,
-        tabla_total,
-        tabla_monto,
-        Spacer(1, 20),
-        terminos_1,
-        terminos_2,
-        Spacer(1, 12),
-        banco_info
+        tabla_principal, Spacer(1, 20), tabla_cliente, Spacer(1, 20),
+        tabla_productos, tabla_total, tabla_monto, Spacer(1, 20),
+        terminos_1, terminos_2, Spacer(1, 12), banco_info
     ]
     
     doc.build(elementos, onFirstPage=agregar_rectangulo_personalizado, onLaterPages=agregar_rectangulo_personalizado)

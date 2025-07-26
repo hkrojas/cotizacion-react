@@ -1,12 +1,12 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import List, Optional, Any
 from datetime import datetime
 
 # --- Esquemas de Producto ---
 class ProductoBase(BaseModel):
-    descripcion: str
-    unidades: int
-    precio_unitario: float
+    descripcion: str = Field(..., min_length=1)
+    unidades: int = Field(..., gt=0)
+    precio_unitario: float = Field(..., ge=0)
     total: float
 class ProductoCreate(ProductoBase): pass
 class Producto(ProductoBase):
@@ -16,14 +16,14 @@ class Producto(ProductoBase):
 
 # --- Esquemas de Cotización ---
 class CotizacionBase(BaseModel):
-    nombre_cliente: str
+    nombre_cliente: str = Field(..., min_length=1)
     direccion_cliente: str
     tipo_documento: str
-    nro_documento: str
+    nro_documento: str = Field(..., min_length=1)
     moneda: str
     monto_total: float
 class CotizacionCreate(CotizacionBase):
-    productos: List[ProductoCreate]
+    productos: List[ProductoCreate] = Field(..., min_length=1)
 class Cotizacion(CotizacionBase):
     id: int
     owner_id: int
@@ -32,29 +32,30 @@ class Cotizacion(CotizacionBase):
     productos: List[Producto] = []
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquema para una cuenta bancaria ---
+# --- NUEVO ESQUEMA PARA CUENTA BANCARIA ---
 class BankAccount(BaseModel):
     banco: str
     cuenta: str
     cci: str
 
-# --- Esquema de Perfil Actualizado ---
+# --- ESQUEMA DE PERFIL ACTUALIZADO ---
 class ProfileUpdate(BaseModel):
     business_name: Optional[str] = None
     business_address: Optional[str] = None
     business_ruc: Optional[str] = None
     business_phone: Optional[str] = None
     primary_color: Optional[str] = None
+    # Añadimos los nuevos campos para que puedan ser actualizados
     pdf_note_1: Optional[str] = None
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
 
-# --- Esquema de Usuario Actualizado ---
+# --- ESQUEMA DE USUARIO ACTUALIZADO ---
 class UserBase(BaseModel):
-    email: str
+    email: EmailStr
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=8)
 class User(UserBase):
     id: int
     is_active: bool
@@ -64,10 +65,11 @@ class User(UserBase):
     business_phone: Optional[str] = None
     logo_filename: Optional[str] = None
     primary_color: Optional[str] = None
+    # Añadimos los nuevos campos para que se envíen al frontend
     pdf_note_1: Optional[str] = None
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
-    bank_accounts: Optional[Any] = None
+    bank_accounts: Optional[Any] = None # 'Any' para compatibilidad con JSONB
     cotizaciones: List[Cotizacion] = []
     model_config = ConfigDict(from_attributes=True)
 
@@ -76,7 +78,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 class TokenData(BaseModel):
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
 class DocumentoConsulta(BaseModel):
     tipo_documento: str
     numero_documento: str

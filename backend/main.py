@@ -1,5 +1,6 @@
 import requests
 import os
+import re # Importamos el módulo de expresiones regulares
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -88,39 +89,22 @@ def create_new_cotizacion(cotizacion: schemas.CotizacionCreate, db: Session = De
 def read_cotizaciones(db: Session = Depends(get_db), current_user: schemas.User = Depends(get_current_user)):
     return crud.get_cotizaciones_by_owner(db=db, owner_id=current_user.id)
 
-# --- NUEVOS ENDPOINTS PARA GESTIONAR UNA COTIZACIÓN ESPECÍFICA ---
 @app.get("/cotizaciones/{cotizacion_id}", response_model=schemas.Cotizacion)
-def read_single_cotizacion(
-    cotizacion_id: int,
-    db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_user)
-):
+def read_single_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(get_current_user)):
     db_cotizacion = crud.get_cotizacion_by_id(db, cotizacion_id=cotizacion_id, owner_id=current_user.id)
-    if db_cotizacion is None:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    if db_cotizacion is None: raise HTTPException(status_code=404, detail="Cotización no encontrada")
     return db_cotizacion
 
 @app.put("/cotizaciones/{cotizacion_id}", response_model=schemas.Cotizacion)
-def update_single_cotizacion(
-    cotizacion_id: int,
-    cotizacion: schemas.CotizacionCreate,
-    db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_user)
-):
+def update_single_cotizacion(cotizacion_id: int, cotizacion: schemas.CotizacionCreate, db: Session = Depends(get_db), current_user: schemas.User = Depends(get_current_user)):
     updated_cotizacion = crud.update_cotizacion(db, cotizacion_id=cotizacion_id, cotizacion_data=cotizacion, owner_id=current_user.id)
-    if updated_cotizacion is None:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    if updated_cotizacion is None: raise HTTPException(status_code=404, detail="Cotización no encontrada")
     return updated_cotizacion
 
 @app.delete("/cotizaciones/{cotizacion_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_single_cotizacion(
-    cotizacion_id: int,
-    db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_user)
-):
+def delete_single_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(get_current_user)):
     success = crud.delete_cotizacion(db, cotizacion_id=cotizacion_id, owner_id=current_user.id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    if not success: raise HTTPException(status_code=404, detail="Cotización no encontrada")
     return {"ok": True}
 
 # --- Endpoints para Perfil y PDF ---
@@ -147,10 +131,25 @@ def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db), cur
     db.refresh(current_user)
     return current_user
 
+# --- NUEVA FUNCIÓN PARA SANITIZAR NOMBRES DE ARCHIVO ---
+def sanitize_filename(name: str) -> str:
+    # Reemplaza espacios con guiones bajos
+    name = name.replace(' ', '_')
+    # Elimina caracteres no permitidos en nombres de archivo
+    name = re.sub(r'[\\/*?:"<>|]', "", name)
+    return name
+
 @app.get("/cotizaciones/{cotizacion_id}/pdf")
 def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(get_current_user)):
-    cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id).first()
-    if not cotizacion or cotizacion.owner_id != current_user.id:
+    cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == current_user.id).first()
+    if not cotizacion:
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    
     pdf_buffer = pdf_generator.create_pdf_buffer(cotizacion, current_user)
-    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename=cotizacion_{cotizacion.numero_cotizacion}.pdf"})
+    
+    # --- LÓGICA ACTUALIZADA PARA EL NOMBRE DEL ARCHIVO ---
+    sanitized_client_name = sanitize_filename(cotizacion.nombre_cliente)
+    filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitized_client_name}.pdf"
+    
+    headers = {"Content-Disposition": f"inline; filename={filename}"}
+    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)

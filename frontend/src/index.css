@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+  Aplicamos la fuente a todo el body para asegurar consistencia
+  y un suavizado de fuente (antialiasing) que se ve mejor en las pantallas.
+*/
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/*
+  Clase personalizada para los selects que creamos anteriormente.
+  No es necesario eliminarla, puede quedarse aquí.
+*/
+.custom-select {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}

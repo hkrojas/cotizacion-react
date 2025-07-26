@@ -18,6 +18,7 @@ function App() {
 
   // Cuando termina la carga, muestra las rutas
   return (
+    // Ya no necesitamos el contenedor de Toast aquí, el ToastProvider se encarga.
     <Routes>
       <Route path="/" element={<Navigate to="/login" />} />
       <Route path="/login" element={<LoginPage />} />

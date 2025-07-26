@@ -38,9 +38,9 @@ const CotizacionesList = ({ refreshTrigger }) => {
         fetchCotizaciones();
     }, [token, refreshTrigger]);
 
-    const handleDownloadPdf = async (cotizacionId) => {
+    const handleDownloadPdf = async (cot) => {
         try {
-            const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${cotizacionId}/pdf`, {
+            const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${cot.id}/pdf`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Error al generar el PDF.');
@@ -48,7 +48,8 @@ const CotizacionesList = ({ refreshTrigger }) => {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `cotizacion_${cotizacionId}.pdf`;
+            const sanitizedClientName = cot.nombre_cliente.replace(/ /g, '_').replace(/[\\/*?:"<>|]/g, '');
+            a.download = `Cotizacion_${cot.numero_cotizacion}_${sanitizedClientName}.pdf`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -142,18 +143,20 @@ const CotizacionesList = ({ refreshTrigger }) => {
                 ) : (
                     <div className="overflow-x-auto rounded-lg shadow-md border dark:border-gray-700">
                         <table className="min-w-full bg-white dark:bg-gray-800">
-                            <thead className="bg-gray-50 dark:bg-gray-700/50">
+                            {/* --- CABECERA DE TABLA MEJORADA --- */}
+                            <thead className="bg-gray-100 dark:bg-gray-700/50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">N°</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cliente</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Fecha</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Monto Total</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">N°</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Cliente</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Fecha</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Monto Total</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-gray-800 dark:text-gray-200">
                                 {filteredCotizaciones.map((cot) => (
-                                    <tr key={cot.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
+                                    // --- FILAS CON COLORES ALTERNOS (EFECTO CEBRA) ---
+                                    <tr key={cot.id} className="hover:bg-gray-100 dark:hover:bg-gray-700/50 even:bg-gray-50 dark:even:bg-gray-800/50 transition-colors duration-200">
                                         <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">{cot.numero_cotizacion}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">{cot.nombre_cliente}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -164,7 +167,7 @@ const CotizacionesList = ({ refreshTrigger }) => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center space-x-2">
                                             <ActionIcon 
-                                                onClick={() => handleDownloadPdf(cot.id)}
+                                                onClick={() => handleDownloadPdf(cot)}
                                                 color="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900"
                                                 icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} 
                                             />
