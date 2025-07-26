@@ -25,7 +25,7 @@ app.mount("/logos", StaticFiles(directory="backend/logos"), name="logos")
 origins = [
     "http://localhost:5173",         # Para desarrollo local
     "http://127.0.0.1:5173",        # Otra dirección para desarrollo local
-    "https://cotizacion-react-bice.vercel.app/"  # ¡IMPORTANTE! Descomenta y reemplaza esta línea con la URL real de tu frontend cuando la obtengas de Vercel.
+    "https://cotizacion-react-bice.vercel.app"  # <-- CORREGIDO: Sin la barra al final
 ]
 
 app.add_middleware(
