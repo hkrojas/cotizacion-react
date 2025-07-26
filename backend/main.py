@@ -24,7 +24,7 @@ app.mount("/logos", StaticFiles(directory="backend/logos"), name="logos")
 # --- CONFIGURACIÓN DE CORS PARA PRODUCCIÓN ---
 origins = [
     "http://localhost:5173",
-    "http://12.0.0.1:5173",
+    "http://127.0.0.1:5173",
     "https://cotizacion-react-bice.vercel.app"
 ]
 
