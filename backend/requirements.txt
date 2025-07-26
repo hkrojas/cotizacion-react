@@ -9,3 +9,4 @@ reportlab
 python-multipart
 fastapi-cors
 psycopg2-binary
+pydantic[email]
