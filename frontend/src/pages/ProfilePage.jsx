@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import { API_URL } from '../context/AuthContext'; // Importar API_URL
 
 const ProfilePage = () => {
     const { user, token, updateUser } = useContext(AuthContext);
@@ -71,7 +72,7 @@ const ProfilePage = () => {
         }
         setLoadingConsulta(true);
         try {
-            const response = await fetch('http://127.0.0.1:8000/consultar-documento', {
+            const response = await fetch(`${API_URL}/consultar-documento`, { // Usar API_URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ tipo_documento: "RUC", numero_documento: lookupRuc })
@@ -94,7 +95,7 @@ const ProfilePage = () => {
         e.preventDefault();
         const profileData = { ...formData, bank_accounts: bankAccounts };
         try {
-            const response = await fetch('http://127.0.0.1:8000/profile/', {
+            const response = await fetch(`${API_URL}/profile/`, { // Usar API_URL
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(profileData),
@@ -117,7 +118,7 @@ const ProfilePage = () => {
         const logoFormData = new FormData();
         logoFormData.append('file', logoFile);
         try {
-            const response = await fetch('http://127.0.0.1:8000/profile/logo/', {
+            const response = await fetch(`${API_URL}/profile/logo/`, { // Usar API_URL
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: logoFormData,
@@ -260,7 +261,7 @@ const ProfilePage = () => {
                             <div className="space-y-2">
                                 <label className={labelStyles}>Logo Actual</label>
                                 <div className="p-4 border border-dashed rounded-md">
-                                    <img src={`http://127.0.0.1:8000/logos/${user.logo_filename}?t=${new Date().getTime()}`} alt="Logo del negocio" className="max-h-24 rounded-md"/>
+                                    <img src={`${API_URL}/logos/${user.logo_filename}?t=${new Date().getTime()}`} alt="Logo del negocio" className="max-h-24 rounded-md"/>
                                 </div>
                             </div>
                         )}

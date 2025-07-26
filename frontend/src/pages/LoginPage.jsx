@@ -5,6 +5,7 @@ import AuthLayout from '../components/AuthLayout';
 import UserIcon from '../components/UserIcon';
 import LockIcon from '../components/LockIcon';
 import { ToastContext } from '../context/ToastContext';
+import { API_URL } from '../context/AuthContext'; // Importar API_URL
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -20,7 +21,7 @@ const LoginPage = () => {
         formData.append('username', email);
         formData.append('password', password);
         try {
-            const response = await fetch('http://127.0.0.1:8000/token', {
+            const response = await fetch(`${API_URL}/token`, { // Usar API_URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData,

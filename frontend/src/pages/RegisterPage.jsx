@@ -4,6 +4,7 @@ import AuthLayout from '../components/AuthLayout';
 import UserIcon from '../components/UserIcon';
 import LockIcon from '../components/LockIcon';
 import { ToastContext } from '../context/ToastContext';
+import { API_URL } from '../context/AuthContext'; // Importar API_URL
 
 const parseApiError = (errorData) => {
     if (errorData.detail) {
@@ -27,7 +28,7 @@ const RegisterPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('http://127.0.0.1:8000/users/', {
+            const response = await fetch(`${API_URL}/users/`, { // Usar API_URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),

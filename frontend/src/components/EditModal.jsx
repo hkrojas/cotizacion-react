@@ -4,6 +4,7 @@ import { ToastContext } from '../context/ToastContext';
 import ClientForm from './ClientForm';
 import ProductsTable from './ProductsTable';
 import LoadingSpinner from './LoadingSpinner';
+import { API_URL } from '../context/AuthContext'; // Importar API_URL
 
 // Función para parsear errores de FastAPI
 const parseApiError = (errorData) => {
@@ -30,7 +31,7 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
         const fetchCotizacionData = async () => {
             setLoading(true);
             try {
-                const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${cotizacionId}`, {
+                const response = await fetch(`${API_URL}/cotizaciones/${cotizacionId}`, { // Usar API_URL
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) throw new Error('No se pudieron cargar los datos de la cotización.');
@@ -84,7 +85,7 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
         
         try {
-            const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${cotizacionId}`, {
+            const response = await fetch(`${API_URL}/cotizaciones/${cotizacionId}`, { // Usar API_URL
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(cotizacionData)

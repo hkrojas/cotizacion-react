@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import EditModal from './EditModal';
 import ConfirmModal from './ConfirmModal';
 import LoadingSpinner from './LoadingSpinner';
+import { API_URL } from '../context/AuthContext'; // Importar API_URL
 
 const ActionIcon = ({ icon, color, onClick }) => (
     <button onClick={onClick} className={`p-2 rounded-full transition-all duration-300 ease-in-out transform hover:scale-110 focus:outline-none ${color}`}>
@@ -24,7 +25,7 @@ const CotizacionesList = ({ refreshTrigger }) => {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch('http://127.0.0.1:8000/cotizaciones/', {
+            const response = await fetch(`${API_URL}/cotizaciones/`, { // Usar API_URL
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('No se pudieron cargar las cotizaciones.');
@@ -40,7 +41,7 @@ const CotizacionesList = ({ refreshTrigger }) => {
 
     const handleDownloadPdf = async (cot) => {
         try {
-            const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${cot.id}/pdf`, {
+            const response = await fetch(`${API_URL}/cotizaciones/${cot.id}/pdf`, { // Usar API_URL
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Error al generar el PDF.');
@@ -65,7 +66,7 @@ const CotizacionesList = ({ refreshTrigger }) => {
     const confirmDelete = async () => {
         if (!deletingCotizacionId) return;
         try {
-            const response = await fetch(`http://127.0.0.1:8000/cotizaciones/${deletingCotizacionId}`, {
+            const response = await fetch(`${API_URL}/cotizaciones/${deletingCotizacionId}`, { // Usar API_URL
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

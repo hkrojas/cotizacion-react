@@ -6,6 +6,7 @@ import ClientForm from '../components/ClientForm';
 import ProductsTable from '../components/ProductsTable';
 import ThemeToggle from '../components/ThemeToggle';
 import CotizacionesList from '../components/CotizacionesList';
+import { API_URL } from '../context/AuthContext'; // Importar API_URL
 
 const parseApiError = (errorData) => {
     if (errorData.detail) {
@@ -46,7 +47,7 @@ const DashboardPage = () => {
         }
         setLoadingConsulta(true);
         try {
-            const response = await fetch('http://127.0.0.1:8000/consultar-documento', {
+            const response = await fetch(`${API_URL}/consultar-documento`, { // Usar API_URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
@@ -98,7 +99,7 @@ const DashboardPage = () => {
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
         
         try {
-            const response = await fetch('http://127.0.0.1:8000/cotizaciones/', {
+            const response = await fetch(`${API_URL}/cotizaciones/`, { // Usar API_URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
                 body: JSON.stringify(cotizacionData)
