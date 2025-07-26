@@ -6,7 +6,8 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from . import models
+# --- CORRECCIÓN DE IMPORTS ---
+import models
 
 def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     buffer = io.BytesIO()
@@ -108,24 +109,21 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     ]))
 
     # --- LÓGICA ACTUALIZADA PARA DATOS PERSONALIZABLES ---
-    # Usamos los datos del usuario en lugar de valores fijos
     note_1_color = colors.HexColor(user.pdf_note_1_color or "#FF0000")
     style_red_bold = ParagraphStyle(name='RedBold', parent=styles['Normal'], textColor=note_1_color, fontName='Helvetica-Bold')
     terminos_1 = Paragraph(user.pdf_note_1 or "", style_red_bold)
     terminos_2 = Paragraph(user.pdf_note_2 or "", styles['Normal'])
     
-    # Construimos dinámicamente la información bancaria
     bank_info_text = "<b>Datos para la Transferencia</b><br/>"
     if user.bank_accounts and isinstance(user.bank_accounts, list):
         for account in user.bank_accounts:
-            # Añadimos solo si el banco tiene nombre
             if account.get('banco'):
                 bank_info_text += f"<b>{account.get('banco', '')}</b><br/>"
                 if account.get('cuenta'):
                     bank_info_text += f"Cuenta: {account.get('cuenta', '')}<br/>"
                 if account.get('cci'):
                     bank_info_text += f"CCI: {account.get('cci', '')}<br/>"
-                bank_info_text += "<br/>" # Espacio entre cuentas
+                bank_info_text += "<br/>"
     banco_info = Paragraph(bank_info_text, styles['Normal'])
 
     def agregar_rectangulo_personalizado(canvas, doc):

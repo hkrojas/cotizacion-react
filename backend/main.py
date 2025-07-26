@@ -12,8 +12,9 @@ import shutil
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import crud, models, schemas, security, pdf_generator
-from .database import SessionLocal, engine
+# --- CORRECCIÓN DE IMPORTS ---
+import crud, models, schemas, security, pdf_generator
+from database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -21,11 +22,10 @@ app = FastAPI()
 app.mount("/logos", StaticFiles(directory="backend/logos"), name="logos")
 
 # --- CONFIGURACIÓN DE CORS PARA PRODUCCIÓN ---
-# Esta lista define qué URLs de frontend tienen permiso para comunicarse con tu API.
 origins = [
-    "http://localhost:5173",         # Para desarrollo local
-    "http://127.0.0.1:5173",        # Otra dirección para desarrollo local
-    "https://cotizacion-react-bice.vercel.app"  # <-- CORREGIDO: Sin la barra al final
+    "http://localhost:5173",
+    "http://12.0.0.1:5173",
+    "https://cotizacion-react-bice.vercel.app"
 ]
 
 app.add_middleware(

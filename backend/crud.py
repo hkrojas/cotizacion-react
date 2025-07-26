@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from . import models, schemas, security
+# --- CORRECCIÓN DE IMPORTS ---
+import models, schemas, security
 
 # --- Funciones de Usuario ---
 def get_user_by_email(db: Session, email: str):
