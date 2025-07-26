@@ -14,9 +14,8 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./ /code/
 
 # Expone el puerto que usará la aplicación
-# Fly.io usará este puerto internamente
 EXPOSE 8080
 
-# Comando para ejecutar la aplicación cuando el contenedor se inicie
-# Uvicorn se ejecutará en el puerto 8080 y será accesible desde cualquier IP dentro de la red de Fly.io
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# --- COMANDO CORREGIDO ---
+# Ahora le decimos a uvicorn que busque el objeto 'app' en el archivo 'main.py' directamente.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
