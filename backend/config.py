@@ -1,5 +1,5 @@
 # backend/config.py
-# NUEVO ARCHIVO PARA CENTRALIZAR LA CONFIGURACIÓN
+# CORREGIDO PARA SOLUCIONAR EL ERROR DE VALIDACIÓN
 
 import os
 from pydantic_settings import BaseSettings
@@ -28,7 +28,8 @@ class Settings(BaseSettings):
 
     # Configuración de roles y APIs externas
     ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
-    API_TOKEN_CONSULTA: str = os.getenv("API_TOKEN", "")
+    # --- CORRECCIÓN: Renombramos la variable para que coincida con el .env ---
+    API_TOKEN: str = os.getenv("API_TOKEN", "")
 
     class Config:
         case_sensitive = True
@@ -40,4 +41,3 @@ settings = Settings()
 # Verificación para asegurarnos de que las variables críticas se cargaron
 if not settings.DATABASE_URL:
     raise ValueError("No se encontró la DATABASE_URL. Asegúrate de que esté definida en tu archivo backend/.env")
-
