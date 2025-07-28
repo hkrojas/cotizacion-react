@@ -21,6 +21,12 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     
     styles = getSampleStyleSheet()
     
+    # --- NUEVO ESTILO PARA EL TEXTO DE LA CABECERA ---
+    # Creamos un estilo centrado para los párrafos de la cabecera
+    header_text_style = ParagraphStyle(name='HeaderText', parent=styles['Normal'], alignment=TA_CENTER)
+    header_bold_style = ParagraphStyle(name='HeaderBold', parent=header_text_style, fontName='Helvetica-Bold')
+
+
     color_principal = colors.HexColor(user.primary_color or '#004aad')
     simbolo = "S/" if cotizacion.moneda == "SOLES" else "$"
 
@@ -33,16 +39,24 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
             except Exception:
                 logo = ""
     
+    # --- CORRECCIÓN: ENVOLVEMOS TEXTOS LARGOS EN PÁRRAFOS ---
+    # Esto permite que los textos largos se dividan en varias líneas automáticamente.
+    business_name_p = Paragraph(user.business_name or "Nombre del Negocio", header_bold_style)
+    business_address_p = Paragraph(user.business_address or "Dirección no especificada", header_text_style)
+    contact_info_p = Paragraph(f"{user.email}<br/>{user.business_phone or ''}", header_text_style)
+
     data_principal = [
-        [logo, user.business_name or "Nombre del Negocio", f"RUC {user.business_ruc or 'NO ESPECIFICADO'}"],
-        ["", user.business_address or "Dirección no especificada", "COTIZACIÓN"],
-        ["", f"{user.email}\n{user.business_phone or ''}", f"N° {cotizacion.numero_cotizacion}"]
+        [logo, business_name_p, f"RUC {user.business_ruc or 'NO ESPECIFICADO'}"],
+        ["", business_address_p, "COTIZACIÓN"],
+        ["", contact_info_p, f"N° {cotizacion.numero_cotizacion}"]
     ]
-    
+    # --- FIN DE LA CORRECCIÓN ---
+
     tabla_principal = Table(data_principal, colWidths=[ancho_total * 0.30, ancho_total * 0.50, ancho_total * 0.20])
     tabla_principal.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('SPAN', (0, 0), (0, -1)), ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
+        ('SPAN', (0, 0), (0, -1)),
+        # Ya no necesitamos especificar la fuente aquí porque el Paragraph se encarga
         ('FONTNAME', (2, 1), (2, 1), 'Helvetica-Bold'), ('FONTNAME', (2, 2), (2, 2), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 11), ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 0),
@@ -123,14 +137,8 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     if user.bank_accounts and isinstance(user.bank_accounts, list):
         for account in user.bank_accounts:
             banco = account.get('banco', '')
-            
-            # --- CORRECCIÓN FINAL ---
-            # Si 'tipo_cuenta' o 'moneda' no existen o son None, se asigna un valor por defecto.
-            # Esto soluciona el problema de "en None" para los datos antiguos.
             tipo_cuenta = account.get('tipo_cuenta') or 'Cta Ahorro'
             moneda = account.get('moneda') or 'Soles'
-            # --- FIN DE LA CORRECCIÓN ---
-
             cuenta = account.get('cuenta', '')
             cci = account.get('cci', '')
 
