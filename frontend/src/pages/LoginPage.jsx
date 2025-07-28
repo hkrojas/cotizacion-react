@@ -55,11 +55,11 @@ const LoginPage = () => {
                         <UserIcon />
                         <input 
                             id="email"
-                            // --- CAMBIO ADICIONAL ---
-                            // Añadimos el atributo 'name' para mayor compatibilidad.
                             name="username" 
                             type="email" 
-                            autoComplete="email"
+                            // --- AJUSTE FINAL ---
+                            // Cambiamos 'email' por 'username' en autoComplete para máxima compatibilidad con Chrome.
+                            autoComplete="username"
                             value={email} 
                             onChange={(e) => setEmail(e.target.value)} 
                             required 
@@ -71,8 +71,6 @@ const LoginPage = () => {
                         <LockIcon />
                         <input 
                             id="password"
-                            // --- CAMBIO ADICIONAL ---
-                            // Añadimos el atributo 'name' para mayor compatibilidad.
                             name="password"
                             type={showPassword ? 'text' : 'password'}
                             autoComplete="current-password"
