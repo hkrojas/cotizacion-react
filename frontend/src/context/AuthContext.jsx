@@ -2,9 +2,6 @@ import React, { createContext, useState, useEffect } from 'react';
 
 export const AuthContext = createContext();
 
-// --- USANDO VARIABLES DE ENTORNO PARA LA URL DE LA API ---
-// Vite usa `import.meta.env.VITE_` para las variables de entorno.
-// Crearemos un archivo .env en el frontend para desarrollo.
 export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 export const AuthProvider = ({ children }) => {
@@ -13,34 +10,34 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (token) {
-            fetch(`${API_URL}/users/me/`, { // Usamos la variable API_URL
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(response => {
-                if (!response.ok) {
+        const fetchUser = async () => {
+            if (token) {
+                try {
+                    const response = await fetch(`${API_URL}/users/me/`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) {
+                        // Si el token es inválido, lo limpiamos
+                        throw new Error('Token inválido o expirado');
+                    }
+                    const data = await response.json();
+                    setUser(data);
+                } catch (error) {
+                    console.error("Auth Error:", error.message);
                     localStorage.removeItem('token');
                     setToken(null);
                     setUser(null);
-                    return Promise.reject('Token inválido');
                 }
-                return response.json();
-            })
-            .then(data => setUser(data))
-            .catch(() => {
-                localStorage.removeItem('token');
-                setToken(null);
-                setUser(null);
-            })
-            .finally(() => setLoading(false));
-        } else {
+            }
             setLoading(false);
-        }
+        };
+        fetchUser();
     }, [token]);
 
     const login = (newToken) => {
         localStorage.setItem('token', newToken);
         setToken(newToken);
+        setLoading(true); // Forzar recarga de datos de usuario
     };
 
     const logout = () => {
@@ -50,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const updateUser = (updatedUserData) => {
-        setUser(updatedUserData);
+        setUser(prevUser => ({...prevUser, ...updatedUserData}));
     };
 
     return (

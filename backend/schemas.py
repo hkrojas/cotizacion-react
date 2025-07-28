@@ -32,16 +32,15 @@ class Cotizacion(CotizacionBase):
     productos: List[Producto] = []
     model_config = ConfigDict(from_attributes=True)
 
-# --- ESQUEMA DE CUENTA BANCARIA ACTUALIZADO ---
-# --- CORRECCIÓN: Hacemos los nuevos campos opcionales para dar soporte a datos antiguos ---
+# --- Esquema de Cuenta Bancaria ---
 class BankAccount(BaseModel):
     banco: str
-    tipo_cuenta: Optional[str] = None # Ahora es opcional
-    moneda: Optional[str] = None      # Ahora es opcional
+    tipo_cuenta: Optional[str] = None
+    moneda: Optional[str] = None
     cuenta: str
     cci: str
 
-# --- ESQUEMA DE PERFIL ACTUALIZADO ---
+# --- Esquema de Perfil ---
 class ProfileUpdate(BaseModel):
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -53,7 +52,7 @@ class ProfileUpdate(BaseModel):
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
 
-# --- ESQUEMA DE USUARIO ACTUALIZADO ---
+# --- Esquemas de Usuario ---
 class UserBase(BaseModel):
     email: EmailStr
 class UserCreate(UserBase):
@@ -61,6 +60,8 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     is_active: bool
+    # --- AÑADIMOS is_admin AL ESQUEMA DE RESPUESTA ---
+    is_admin: bool
     business_name: Optional[str] = None
     business_address: Optional[str] = None
     business_ruc: Optional[str] = None
@@ -73,6 +74,17 @@ class User(UserBase):
     bank_accounts: Optional[List[BankAccount]] = None
     cotizaciones: List[Cotizacion] = []
     model_config = ConfigDict(from_attributes=True)
+
+# --- NUEVOS ESQUEMAS PARA EL PANEL DE ADMIN ---
+class AdminUserView(BaseModel):
+    id: int
+    email: str
+    is_active: bool
+    is_admin: bool
+    model_config = ConfigDict(from_attributes=True)
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
 
 # --- Esquemas de Token y DocumentoConsulta ---
 class Token(BaseModel):

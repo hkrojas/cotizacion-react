@@ -8,17 +8,18 @@ import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
 
+// --- NUEVOS IMPORTS PARA ADMIN ---
+import AdminProtectedRoute from './components/AdminProtectedRoute';
+import AdminPage from './pages/AdminPage';
+
 function App() {
   const { loading } = useContext(AuthContext);
 
-  // Si la aplicación está verificando la sesión, muestra el spinner a pantalla completa
   if (loading) {
     return <LoadingSpinner message="Verificando sesión..." fullScreen={true} />;
   }
 
-  // Cuando termina la carga, muestra las rutas
   return (
-    // Ya no necesitamos el contenedor de Toast aquí, el ToastProvider se encarga.
     <Routes>
       <Route path="/" element={<Navigate to="/login" />} />
       <Route path="/login" element={<LoginPage />} />
@@ -38,6 +39,15 @@ function App() {
             <ProfilePage />
           </ProtectedRoute>
         } 
+      />
+      {/* --- NUEVA RUTA DE ADMIN --- */}
+      <Route 
+        path="/admin"
+        element={
+          <AdminProtectedRoute>
+            <AdminPage />
+          </AdminProtectedRoute>
+        }
       />
     </Routes>
   );

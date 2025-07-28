@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-# Se elimina la importación de JSONB que ya no se usa
 from database import Base
 
 class User(Base):
@@ -11,6 +10,9 @@ class User(Base):
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
     
+    # --- NUEVO CAMPO PARA ROL DE ADMIN ---
+    is_admin = Column(Boolean, default=False)
+
     # Perfil del negocio
     business_name = Column(String, nullable=True)
     business_address = Column(String, nullable=True)
@@ -22,10 +24,6 @@ class User(Base):
     pdf_note_1 = Column(String, default="TODO TRABAJO SE REALIZA CON EL 50% DE ADELANTO")
     pdf_note_1_color = Column(String, default="#FF0000")
     pdf_note_2 = Column(String, default="LOS PRECIOS NO INCLUYEN ENVIOS")
-    
-    # --- CORRECCIÓN ---
-    # Cambiamos el tipo de columna de JSONB a JSON para una mejor compatibilidad
-    # con listas de diccionarios estándar de Python.
     bank_accounts = Column(JSON, nullable=True) 
 
     cotizaciones = relationship("Cotizacion", back_populates="owner")

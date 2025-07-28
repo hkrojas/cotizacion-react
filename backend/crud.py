@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-# --- CORRECCIÓN DE IMPORTS ---
 import models, schemas, security
 
 # --- Funciones de Usuario ---
@@ -51,36 +50,47 @@ def create_cotizacion(db: Session, cotizacion: schemas.CotizacionCreate, user_id
 def get_cotizaciones_by_owner(db: Session, owner_id: int):
     return db.query(models.Cotizacion).filter(models.Cotizacion.owner_id == owner_id).order_by(models.Cotizacion.id.desc()).all()
 
-# --- NUEVAS FUNCIONES PARA EDITAR Y ELIMINAR ---
 def get_cotizacion_by_id(db: Session, cotizacion_id: int, owner_id: int):
-    """Obtiene una cotización específica por su ID, verificando que pertenezca al usuario."""
     return db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == owner_id).first()
 
 def update_cotizacion(db: Session, cotizacion_id: int, cotizacion_data: schemas.CotizacionCreate, owner_id: int):
-    """Actualiza una cotización existente."""
     db_cotizacion = get_cotizacion_by_id(db, cotizacion_id=cotizacion_id, owner_id=owner_id)
     if not db_cotizacion:
         return None
-
-    # Actualizar datos del cliente
     for key, value in cotizacion_data.model_dump(exclude={"productos"}).items():
         setattr(db_cotizacion, key, value)
-
-    # Reemplazar productos
     db.query(models.Producto).filter(models.Producto.cotizacion_id == cotizacion_id).delete()
     for producto_data in cotizacion_data.productos:
         db_producto = models.Producto(**producto_data.model_dump(), cotizacion_id=cotizacion_id)
         db.add(db_producto)
-
     db.commit()
     db.refresh(db_cotizacion)
     return db_cotizacion
 
 def delete_cotizacion(db: Session, cotizacion_id: int, owner_id: int):
-    """Elimina una cotización."""
     db_cotizacion = get_cotizacion_by_id(db, cotizacion_id=cotizacion_id, owner_id=owner_id)
     if not db_cotizacion:
         return False
     db.delete(db_cotizacion)
     db.commit()
     return True
+
+# --- NUEVAS FUNCIONES DE ADMINISTRADOR ---
+def get_all_users(db: Session):
+    return db.query(models.User).all()
+
+def update_user_status(db: Session, user_id: int, is_active: bool):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if db_user:
+        db_user.is_active = is_active
+        db.commit()
+        db.refresh(db_user)
+    return db_user
+
+def delete_user(db: Session, user_id: int):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if db_user:
+        db.delete(db_user)
+        db.commit()
+        return True
+    return False

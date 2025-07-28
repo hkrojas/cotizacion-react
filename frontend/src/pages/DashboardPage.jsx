@@ -6,7 +6,7 @@ import ClientForm from '../components/ClientForm';
 import ProductsTable from '../components/ProductsTable';
 import ThemeToggle from '../components/ThemeToggle';
 import CotizacionesList from '../components/CotizacionesList';
-import { API_URL } from '../context/AuthContext'; // Importar API_URL
+import { API_URL } from '../context/AuthContext';
 
 const parseApiError = (errorData) => {
     if (errorData.detail) {
@@ -47,7 +47,7 @@ const DashboardPage = () => {
         }
         setLoadingConsulta(true);
         try {
-            const response = await fetch(`${API_URL}/consultar-documento`, { // Usar API_URL
+            const response = await fetch(`${API_URL}/consultar-documento`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
@@ -99,7 +99,7 @@ const DashboardPage = () => {
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
         
         try {
-            const response = await fetch(`${API_URL}/cotizaciones/`, { // Usar API_URL
+            const response = await fetch(`${API_URL}/cotizaciones/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
                 body: JSON.stringify(cotizacionData)
@@ -120,13 +120,11 @@ const DashboardPage = () => {
         }
     };
 
-    // --- ESTILOS DE PESTAÑAS MEJORADOS ---
     const tabStyle = "px-6 py-3 font-semibold text-base border-b-2 transition-colors duration-300 focus:outline-none";
     const activeTabStyle = "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400";
     const inactiveTabStyle = "border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
 
     return (
-        // --- FONDO DE PÁGINA ACTUALIZADO ---
         <div className="bg-gray-100 dark:bg-dark-bg-body min-h-screen transition-colors duration-300">
             <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md sticky top-0 z-10">
                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -144,12 +142,18 @@ const DashboardPage = () => {
                              {user && (
                                 <div className="flex items-center space-x-4">
                                     <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300">Bienvenido, <strong>{user.email}</strong></span>
-                                    <Link to="/profile" className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300 transform hover:scale-105">
+                                    {/* --- ENLACE CONDICIONAL AL PANEL DE ADMIN --- */}
+                                    {user.is_admin && (
+                                        <Link to="/admin" className="font-semibold text-purple-600 dark:text-purple-400 hover:underline">
+                                            Admin
+                                        </Link>
+                                    )}
+                                    <Link to="/profile" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                                         Mi Perfil
                                     </Link>
                                     <button 
                                         onClick={logout} 
-                                        className="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
+                                        className="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-all duration-300 shadow-lg"
                                     >
                                         Cerrar Sesión
                                     </button>
@@ -162,7 +166,6 @@ const DashboardPage = () => {
             
             <main className="p-4 sm:p-8">
                 <div className="w-full max-w-6xl mx-auto">
-                    {/* --- CONTENEDOR DE PESTAÑAS REDISEÑADO --- */}
                     <div className="flex border-b border-gray-300 dark:border-gray-700">
                         <button onClick={() => setActiveTab('crear')} className={`${tabStyle} ${activeTab === 'crear' ? activeTabStyle : inactiveTabStyle}`}>
                             Crear Cotización
@@ -171,8 +174,6 @@ const DashboardPage = () => {
                             Ver Cotizaciones
                         </button>
                     </div>
-
-                    {/* --- TARJETA DE CONTENIDO AJUSTADA --- */}
                     <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-b-lg shadow-xl">
                         {activeTab === 'crear' && (
                             <form onSubmit={handleSubmit}>
@@ -181,7 +182,7 @@ const DashboardPage = () => {
                                 <div className="mt-8 text-right">
                                     <button 
                                         type="submit" 
-                                        className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-md transition-all duration-300 text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
+                                        className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-md transition-all duration-300 text-lg shadow-lg"
                                     >
                                         Guardar Cotización
                                     </button>
