@@ -10,5 +10,6 @@ python-multipart
 fastapi-cors
 psycopg2-binary
 pydantic[email]
+pydantic-settings # <-- AÑADIMOS LA LIBRERÍA QUE FALTABA
 python-dateutil
 bcrypt==3.2.2
