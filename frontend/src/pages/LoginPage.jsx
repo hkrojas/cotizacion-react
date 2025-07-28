@@ -15,7 +15,6 @@ const LoginPage = () => {
     const { addToast } = useContext(ToastContext);
     const navigate = useNavigate();
 
-    // Estado para la ventana de error de desactivación
     const [deactivationError, setDeactivationError] = useState(null);
 
     const handleSubmit = async (e) => {
@@ -40,8 +39,6 @@ const LoginPage = () => {
             addToast('¡Inicio de sesión exitoso!', 'success');
             navigate('/dashboard');
         } catch (err) {
-            // Si el mensaje de error es sobre una cuenta desactivada, mostramos la ventana.
-            // Si no, mostramos el toast normal.
             if (err.message && err.message.includes('Su cuenta ha sido desactivada')) {
                 setDeactivationError(err.message);
             } else {
@@ -58,10 +55,10 @@ const LoginPage = () => {
                         <UserIcon />
                         <input 
                             id="email"
-                            name="email"
+                            // --- CAMBIO ADICIONAL ---
+                            // Añadimos el atributo 'name' para mayor compatibilidad.
+                            name="username" 
                             type="email" 
-                            // --- CORRECCIÓN APLICADA ---
-                            // Se cambió 'username' por 'email' para mejorar el autocompletado en móviles.
                             autoComplete="email"
                             value={email} 
                             onChange={(e) => setEmail(e.target.value)} 
@@ -74,6 +71,8 @@ const LoginPage = () => {
                         <LockIcon />
                         <input 
                             id="password"
+                            // --- CAMBIO ADICIONAL ---
+                            // Añadimos el atributo 'name' para mayor compatibilidad.
                             name="password"
                             type={showPassword ? 'text' : 'password'}
                             autoComplete="current-password"
@@ -106,7 +105,6 @@ const LoginPage = () => {
                 </p>
             </AuthLayout>
 
-            {/* Ventana de error a pantalla completa para cuentas desactivadas */}
             {deactivationError && (
                 <div className="fixed inset-0 bg-red-900 bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md text-center transform transition-all animate-slide-in-up">
