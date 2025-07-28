@@ -15,7 +15,7 @@ const LoginPage = () => {
     const { addToast } = useContext(ToastContext);
     const navigate = useNavigate();
 
-    // --- NUEVO ESTADO PARA LA VENTANA DE ERROR ---
+    // Estado para la ventana de error de desactivación
     const [deactivationError, setDeactivationError] = useState(null);
 
     const handleSubmit = async (e) => {
@@ -40,7 +40,6 @@ const LoginPage = () => {
             addToast('¡Inicio de sesión exitoso!', 'success');
             navigate('/dashboard');
         } catch (err) {
-            // --- LÓGICA MODIFICADA ---
             // Si el mensaje de error es sobre una cuenta desactivada, mostramos la ventana.
             // Si no, mostramos el toast normal.
             if (err.message && err.message.includes('Su cuenta ha sido desactivada')) {
@@ -61,7 +60,9 @@ const LoginPage = () => {
                             id="email"
                             name="email"
                             type="email" 
-                            autoComplete="username"
+                            // --- CORRECCIÓN APLICADA ---
+                            // Se cambió 'username' por 'email' para mejorar el autocompletado en móviles.
+                            autoComplete="email"
                             value={email} 
                             onChange={(e) => setEmail(e.target.value)} 
                             required 
@@ -105,7 +106,7 @@ const LoginPage = () => {
                 </p>
             </AuthLayout>
 
-            {/* --- NUEVA VENTANA DE ERROR A PANTALLA COMPLETA --- */}
+            {/* Ventana de error a pantalla completa para cuentas desactivadas */}
             {deactivationError && (
                 <div className="fixed inset-0 bg-red-900 bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md text-center transform transition-all animate-slide-in-up">
