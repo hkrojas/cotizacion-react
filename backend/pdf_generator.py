@@ -1,4 +1,5 @@
 import io
+import os # Importamos 'os' para verificar la existencia de archivos
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Image, Spacer, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -23,11 +24,17 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     color_principal = colors.HexColor(user.primary_color or '#004aad')
     simbolo = "S/" if cotizacion.moneda == "SOLES" else "$"
 
-    try:
-        logo_path = f"logos/{user.logo_filename}" if user.logo_filename else None
-        logo = Image(logo_path, width=151, height=76) if logo_path else ""
-    except Exception:
-        logo = ""
+    # --- CORRECCIÓN: LÓGICA ROBUSTA PARA EL LOGO ---
+    # Se verifica si el archivo del logo existe físicamente antes de intentar usarlo.
+    logo = ""
+    if user.logo_filename:
+        logo_path = f"logos/{user.logo_filename}"
+        if os.path.exists(logo_path):
+            try:
+                logo = Image(logo_path, width=151, height=76)
+            except Exception:
+                logo = "" # Si hay algún error al leer la imagen, no se incluye
+    # --- FIN DE LA CORRECCIÓN ---
     
     data_principal = [
         [logo, user.business_name or "Nombre del Negocio", f"RUC {user.business_ruc or 'NO ESPECIFICADO'}"],
@@ -107,7 +114,6 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
         ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
 
-    # --- LÓGICA ACTUALIZADA PARA DATOS BANCARIOS ---
     note_1_color = colors.HexColor(user.pdf_note_1_color or "#FF0000")
     style_red_bold = ParagraphStyle(name='RedBold', parent=styles['Normal'], textColor=note_1_color, fontName='Helvetica-Bold')
     terminos_1 = Paragraph(user.pdf_note_1 or "", style_red_bold)
@@ -128,7 +134,6 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
             if banco:
                 bank_info_text += f"<b>{banco}</b><br/>"
                 
-                # Lógica especial para el Banco de la Nación
                 if 'nación' in banco.lower():
                     label_cuenta = f"Cuenta Detracción en {moneda}"
                 else:

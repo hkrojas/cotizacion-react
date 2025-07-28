@@ -1,8 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
-# --- CORRECCIÓN DE IMPORTS ---
+# Se elimina la importación de JSONB que ya no se usa
 from database import Base
 
 class User(Base):
@@ -20,11 +19,14 @@ class User(Base):
     logo_filename = Column(String, nullable=True)
     primary_color = Column(String, default="#004aad")
 
-    # --- NUEVOS CAMPOS PARA PERSONALIZACIÓN DEL PDF ---
     pdf_note_1 = Column(String, default="TODO TRABAJO SE REALIZA CON EL 50% DE ADELANTO")
-    pdf_note_1_color = Column(String, default="#FF0000") # Rojo por defecto
+    pdf_note_1_color = Column(String, default="#FF0000")
     pdf_note_2 = Column(String, default="LOS PRECIOS NO INCLUYEN ENVIOS")
-    bank_accounts = Column(JSONB, nullable=True) 
+    
+    # --- CORRECCIÓN ---
+    # Cambiamos el tipo de columna de JSONB a JSON para una mejor compatibilidad
+    # con listas de diccionarios estándar de Python.
+    bank_accounts = Column(JSON, nullable=True) 
 
     cotizaciones = relationship("Cotizacion", back_populates="owner")
 
