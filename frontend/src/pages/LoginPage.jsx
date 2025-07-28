@@ -37,7 +37,15 @@ const LoginPage = () => {
 
             login(data.access_token);
             addToast('¡Inicio de sesión exitoso!', 'success');
-            navigate('/dashboard');
+
+            // --- SOLUCIÓN APLICADA ---
+            // Se agrega un pequeño retraso antes de navegar.
+            // Esto le da tiempo al navegador para reconocer el inicio de sesión exitoso
+            // y ofrecer la opción de guardar la contraseña.
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 100); // Un retraso de 100 milisegundos es suficiente.
+
         } catch (err) {
             if (err.message && err.message.includes('Su cuenta ha sido desactivada')) {
                 setDeactivationError(err.message);
@@ -57,8 +65,6 @@ const LoginPage = () => {
                             id="email"
                             name="username" 
                             type="email" 
-                            // --- AJUSTE FINAL ---
-                            // Cambiamos 'email' por 'username' en autoComplete para máxima compatibilidad con Chrome.
                             autoComplete="username"
                             value={email} 
                             onChange={(e) => setEmail(e.target.value)} 
