@@ -38,13 +38,9 @@ const LoginPage = () => {
             login(data.access_token);
             addToast('¡Inicio de sesión exitoso!', 'success');
 
-            // --- SOLUCIÓN APLICADA ---
-            // Se agrega un pequeño retraso antes de navegar.
-            // Esto le da tiempo al navegador para reconocer el inicio de sesión exitoso
-            // y ofrecer la opción de guardar la contraseña.
             setTimeout(() => {
                 navigate('/dashboard');
-            }, 100); // Un retraso de 100 milisegundos es suficiente.
+            }, 100);
 
         } catch (err) {
             if (err.message && err.message.includes('Su cuenta ha sido desactivada')) {
@@ -58,7 +54,9 @@ const LoginPage = () => {
     return (
         <>
             <AuthLayout title="Iniciar Sesión">
-                <form onSubmit={handleSubmit} className="space-y-6">
+                {/* --- CAMBIO FINAL APLICADO --- */}
+                {/* Se añaden los atributos 'action' y 'method' al formulario */}
+                <form onSubmit={handleSubmit} className="space-y-6" action="/login" method="post">
                     <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
                         <UserIcon />
                         <input 
