@@ -4,19 +4,10 @@ import AuthLayout from '../components/AuthLayout';
 import UserIcon from '../components/UserIcon';
 import LockIcon from '../components/LockIcon';
 import { ToastContext } from '../context/ToastContext';
-import { API_URL } from '../context/AuthContext';
+import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
+import { parseApiError } from '../utils/apiUtils'; // 2. Importamos la función de utilidad
 
-const parseApiError = (errorData) => {
-    if (errorData.detail) {
-        if (typeof errorData.detail === 'string') {
-            return errorData.detail;
-        }
-        if (Array.isArray(errorData.detail)) {
-            return errorData.detail.map(err => `${err.loc[1]}: ${err.msg}`).join('; ');
-        }
-    }
-    return 'Ocurrió un error desconocido.';
-};
+// 3. Eliminamos la función parseApiError que estaba duplicada aquí.
 
 const RegisterPage = () => {
     const [email, setEmail] = useState('');
@@ -28,6 +19,7 @@ const RegisterPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/users/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -36,6 +28,7 @@ const RegisterPage = () => {
 
             if (!response.ok) {
                 const errData = await response.json();
+                // Usamos la función de utilidad importada
                 const errorMessage = parseApiError(errData);
                 throw new Error(errorMessage);
             }

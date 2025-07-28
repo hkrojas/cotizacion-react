@@ -1,23 +1,16 @@
 # backend/security.py
+# MODIFICADO PARA USAR EL ARCHIVO DE CONFIGURACIÓN CENTRALIZADO
+
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-import os
-from pathlib import Path  # Importar Path
-from dotenv import load_dotenv
+from config import settings # Importamos la configuración centralizada
 
-# --- CORRECCIÓN ---
-# Especificamos la ruta exacta al archivo .env para asegurarnos de que se encuentre
-# sin importar desde dónde se ejecute el script.
-env_path = Path(__file__).parent / '.env'
-load_dotenv(dotenv_path=env_path)
-# --- FIN DE LA CORRECCIÓN ---
-
-# Cargar configuración desde .env
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+# Usamos las variables de configuración desde el objeto de settings
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -31,7 +24,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

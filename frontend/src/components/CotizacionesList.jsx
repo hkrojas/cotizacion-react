@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import EditModal from './EditModal';
 import ConfirmModal from './ConfirmModal';
 import LoadingSpinner from './LoadingSpinner';
-import { API_URL } from '../context/AuthContext'; // Importar API_URL
+import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
 
 const ActionIcon = ({ icon, color, onClick }) => (
     <button onClick={onClick} className={`p-2 rounded-full transition-all duration-300 ease-in-out transform hover:scale-110 focus:outline-none ${color}`}>
@@ -25,7 +25,8 @@ const CotizacionesList = ({ refreshTrigger }) => {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`${API_URL}/cotizaciones/`, { // Usar API_URL
+            // Usamos la API_URL importada
+            const response = await fetch(`${API_URL}/cotizaciones/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('No se pudieron cargar las cotizaciones.');
@@ -41,7 +42,8 @@ const CotizacionesList = ({ refreshTrigger }) => {
 
     const handleDownloadPdf = async (cot) => {
         try {
-            const response = await fetch(`${API_URL}/cotizaciones/${cot.id}/pdf`, { // Usar API_URL
+            // Usamos la API_URL importada
+            const response = await fetch(`${API_URL}/cotizaciones/${cot.id}/pdf`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Error al generar el PDF.');
@@ -66,7 +68,8 @@ const CotizacionesList = ({ refreshTrigger }) => {
     const confirmDelete = async () => {
         if (!deletingCotizacionId) return;
         try {
-            const response = await fetch(`${API_URL}/cotizaciones/${deletingCotizacionId}`, { // Usar API_URL
+            // Usamos la API_URL importada
+            const response = await fetch(`${API_URL}/cotizaciones/${deletingCotizacionId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

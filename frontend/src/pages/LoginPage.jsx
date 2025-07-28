@@ -5,7 +5,7 @@ import AuthLayout from '../components/AuthLayout';
 import UserIcon from '../components/UserIcon';
 import LockIcon from '../components/LockIcon';
 import { ToastContext } from '../context/ToastContext';
-import { API_URL } from '../context/AuthContext';
+import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -21,6 +21,7 @@ const LoginPage = () => {
         formData.append('username', email);
         formData.append('password', password);
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

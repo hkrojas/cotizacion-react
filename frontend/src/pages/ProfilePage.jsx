@@ -3,24 +3,10 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
-import { API_URL } from '../context/AuthContext';
+import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
+import { parseApiError } from '../utils/apiUtils'; // 2. Importamos la función de utilidad
 
-// Función para parsear errores de FastAPI (la moveremos aquí para que esté disponible)
-const parseApiError = (errorData) => {
-    if (errorData.detail) {
-        if (typeof errorData.detail === 'string') {
-            return errorData.detail;
-        }
-        if (Array.isArray(errorData.detail)) {
-            return errorData.detail.map(err => {
-                const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : 'field';
-                return `${field}: ${err.msg}`;
-            }).join('; ');
-        }
-    }
-    return 'Ocurrió un error desconocido al procesar la respuesta del servidor.';
-};
-
+// 3. Eliminamos la función parseApiError que estaba duplicada aquí.
 
 const ProfilePage = () => {
     const { user, token, updateUser } = useContext(AuthContext);
@@ -103,6 +89,7 @@ const ProfilePage = () => {
         }
         setLoadingConsulta(true);
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/consultar-documento`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -126,14 +113,15 @@ const ProfilePage = () => {
         e.preventDefault();
         const profileData = { ...formData, bank_accounts: bankAccounts };
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/profile/`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(profileData),
             });
-            // --- CORRECCIÓN: MANEJO DE ERRORES DETALLADO ---
             if (!response.ok) {
                 const errData = await response.json();
+                // Usamos la función de utilidad importada
                 const errorMessage = parseApiError(errData);
                 throw new Error(errorMessage);
             }
@@ -154,6 +142,7 @@ const ProfilePage = () => {
         const logoFormData = new FormData();
         logoFormData.append('file', logoFile);
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/profile/logo/`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -321,6 +310,7 @@ const ProfilePage = () => {
                             <div className="space-y-2">
                                 <label className={labelStyles}>Logo Actual</label>
                                 <div className="p-4 border border-dashed rounded-md">
+                                    {/* Usamos la API_URL importada */}
                                     <img src={`${API_URL}/logos/${user.logo_filename}?t=${new Date().getTime()}`} alt="Logo del negocio" className="max-h-24 rounded-md"/>
                                 </div>
                             </div>

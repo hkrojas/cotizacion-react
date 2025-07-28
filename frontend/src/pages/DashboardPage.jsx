@@ -6,19 +6,10 @@ import ClientForm from '../components/ClientForm';
 import ProductsTable from '../components/ProductsTable';
 import ThemeToggle from '../components/ThemeToggle';
 import CotizacionesList from '../components/CotizacionesList';
-import { API_URL } from '../context/AuthContext';
+import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
+import { parseApiError } from '../utils/apiUtils'; // 2. Importamos la función de utilidad
 
-const parseApiError = (errorData) => {
-    if (errorData.detail) {
-        if (typeof errorData.detail === 'string') {
-            return errorData.detail;
-        }
-        if (Array.isArray(errorData.detail)) {
-            return errorData.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join('; ');
-        }
-    }
-    return 'Ocurrió un error desconocido.';
-};
+// 3. Eliminamos la función parseApiError que estaba duplicada aquí.
 
 const DashboardPage = () => {
     const { user, logout, token } = useContext(AuthContext);
@@ -47,6 +38,7 @@ const DashboardPage = () => {
         }
         setLoadingConsulta(true);
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/consultar-documento`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -99,6 +91,7 @@ const DashboardPage = () => {
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
         
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/cotizaciones/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
@@ -106,6 +99,7 @@ const DashboardPage = () => {
             });
             if (!response.ok) { 
                 const errData = await response.json();
+                // Usamos la función de utilidad importada
                 const errorMessage = parseApiError(errData);
                 throw new Error(errorMessage);
             }

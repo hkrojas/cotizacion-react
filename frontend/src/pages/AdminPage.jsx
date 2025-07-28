@@ -5,7 +5,7 @@ import { ToastContext } from '../context/ToastContext';
 import ThemeToggle from '../components/ThemeToggle';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
-import { API_URL } from '../context/AuthContext';
+import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
 
 // --- COMPONENTE: MODAL DE DETALLES DE USUARIO ---
 const UserDetailsModal = ({ userId, onClose, token }) => {
@@ -17,6 +17,7 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
         const fetchUserDetails = async () => {
             setLoading(true);
             try {
+                // Usamos la API_URL importada
                 const response = await fetch(`${API_URL}/admin/users/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -138,6 +139,7 @@ const AdminPage = () => {
     const fetchUsers = async () => {
         setLoading(true);
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/admin/users/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -157,6 +159,7 @@ const AdminPage = () => {
 
     const handleToggleActive = async (user) => {
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/admin/users/${user.id}/status`, {
                 method: 'PUT',
                 headers: {
@@ -176,6 +179,7 @@ const AdminPage = () => {
     const confirmDelete = async () => {
         if (!deletingUser) return;
         try {
+            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/admin/users/${deletingUser.id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }

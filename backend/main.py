@@ -1,31 +1,38 @@
+# backend/main.py
+# MODIFICADO PARA USAR CONFIGURACIÓN CENTRALIZADA Y MEJORAR SEGURIDAD
+
 import requests
 import os
 import re
+import shutil
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from typing import List
 from jose import JWTError, jwt
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
-import shutil
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+# Importaciones de la aplicación
 import crud, models, schemas, security, pdf_generator
 from database import SessionLocal, engine
+from config import settings # Importamos la configuración centralizada
 
+# Creación de tablas en la base de datos
 models.Base.metadata.create_all(bind=engine)
+
 app = FastAPI()
 
+# Montar directorio estático para logos
 app.mount("/logos", StaticFiles(directory="logos"), name="logos")
 
+# Configuración de CORS
 origins = [
     "http://localhost:5173",
-    "http://12-7.0.0.1:5173",
-    "https://cotizacion-react-bice.vercel.app" # Asegúrate de que esta sea la URL correcta de tu frontend en Vercel
+    "http://127.0.0.1:5173",
+    "https://cotizacion-react-bice.vercel.app"
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -36,35 +43,35 @@ app.add_middleware(
 
 # --- Autenticación y Dependencias ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 def get_db():
     db = SessionLocal()
-    try: 
+    try:
         yield db
-    finally: 
+    finally:
         db.close()
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, 
-        detail="Could not validate credentials", 
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"}
     )
     try:
-        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
-        if email is None: 
+        if email is None:
             raise credentials_exception
         token_data = schemas.TokenData(email=email)
-    except JWTError: 
-        raise credentials_exception
-    user = crud.get_user_by_email(db, email=token_data.email)
-    if user is None: 
+    except JWTError:
         raise credentials_exception
     
-    # Asigna el rol de admin dinámicamente basado en la variable de entorno
-    admin_email = os.getenv("ADMIN_EMAIL")
-    user.is_admin = user.email == admin_email
-        
+    user = crud.get_user_by_email(db, email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    
+    # Asigna el rol de admin dinámicamente
+    user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return user
 
 def get_current_admin_user(current_user: models.User = Depends(get_current_user)):
@@ -76,20 +83,19 @@ def get_current_admin_user(current_user: models.User = Depends(get_current_user)
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = crud.authenticate_user(db, email=form_data.username, password=form_data.password)
-    if not user: 
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Incorrect email or password", 
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
+    access_token = security.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
-    if db_user: 
+    if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     return crud.create_user(db=db, user=user)
 
@@ -100,12 +106,14 @@ def read_users_me(current_user: models.User = Depends(get_current_user)):
 # --- Endpoint para Consultar Documento ---
 @app.post("/consultar-documento")
 def consultar_documento(consulta: schemas.DocumentoConsulta, current_user: models.User = Depends(get_current_user)):
-    token = os.getenv("API_TOKEN")
-    if not token: 
+    token = settings.API_TOKEN_CONSULTA
+    if not token:
         raise HTTPException(status_code=500, detail="API token not configured")
+    
     headers = {'Authorization': f'Bearer {token}'}
     tipo, numero = consulta.tipo_documento, consulta.numero_documento
     url = f"https://api.apis.net.pe/v2/reniec/dni?numero={numero}" if tipo == "DNI" else f"https://api.apis.net.pe/v2/sunat/ruc?numero={numero}"
+    
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
@@ -115,8 +123,8 @@ def consultar_documento(consulta: schemas.DocumentoConsulta, current_user: model
             return {"nombre": nombre_completo, "direccion": ""}
         else:
             return {"nombre": data.get('razonSocial', ''), "direccion": data.get('direccion', '')}
-    except Exception: 
-        raise HTTPException(status_code=500, detail="Error al consultar la API externa")
+    except requests.exceptions.RequestException:
+        raise HTTPException(status_code=503, detail="Error al consultar la API externa")
 
 # --- Endpoints de Cotizaciones ---
 @app.post("/cotizaciones/", response_model=schemas.Cotizacion)
@@ -160,13 +168,26 @@ def update_profile(profile_data: schemas.ProfileUpdate, db: Session = Depends(ge
 
 @app.post("/profile/logo/", response_model=schemas.User)
 def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    # --- MEJORA DE SEGURIDAD: VALIDACIÓN DE ARCHIVO ---
+    allowed_mime_types = ["image/jpeg", "image/png"]
+    allowed_extensions = [".jpg", ".jpeg", ".png"]
+    
+    if file.content_type not in allowed_mime_types:
+        raise HTTPException(status_code=400, detail="Tipo de archivo no permitido. Solo se aceptan JPG o PNG.")
+
+    file_extension = os.path.splitext(file.filename)[1].lower()
+    if file_extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Extensión de archivo no permitida.")
+
     logo_dir = "logos"
     os.makedirs(logo_dir, exist_ok=True)
-    file_extension = file.filename.split('.')[-1]
-    filename = f"user_{current_user.id}_logo.{file_extension}"
+    
+    filename = f"user_{current_user.id}_logo{file_extension}"
     file_path = os.path.join(logo_dir, filename)
+    
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+        
     current_user.logo_filename = filename
     db.commit()
     db.refresh(current_user)
@@ -191,15 +212,51 @@ def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), curren
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
 
-# --- NUEVO ENDPOINT DE ADMIN PARA DESCARGAR PDF ---
+# --- Endpoints de Administrador ---
+@app.get("/admin/users/", response_model=List[schemas.AdminUserView])
+def get_users_for_admin(db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    users = crud.get_all_users(db)
+    for user in users:
+        user.is_admin = (user.email == settings.ADMIN_EMAIL)
+    return users
+
+@app.get("/admin/users/{user_id}", response_model=schemas.AdminUserDetailView)
+def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.is_admin = (user.email == settings.ADMIN_EMAIL)
+    return user
+
+@app.put("/admin/users/{user_id}/status", response_model=schemas.AdminUserView)
+def update_user_status_for_admin(user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    user = crud.update_user_status(db, user_id=user_id, is_active=status_update.is_active)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_admin = (user.email == settings.ADMIN_EMAIL)
+    return user
+
+@app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    user_to_delete = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user_to_delete.email == settings.ADMIN_EMAIL:
+        raise HTTPException(status_code=400, detail="Cannot delete the main admin account")
+    
+    success = crud.delete_user(db, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found during deletion")
+    return
+
 @app.get("/admin/cotizaciones/{cotizacion_id}/pdf")
 def get_admin_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    # El admin puede buscar cualquier cotización por ID, sin filtrar por owner_id
     cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id).first()
     if not cotizacion:
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
     
-    # Obtenemos el usuario dueño de la cotización para los datos del PDF
     quote_owner = cotizacion.owner
     if not quote_owner:
          raise HTTPException(status_code=404, detail="No se encontró el dueño de la cotización")
@@ -211,43 +268,3 @@ def get_admin_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), 
     
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
-
-# --- Endpoints de Administrador ---
-@app.get("/admin/users/", response_model=List[schemas.AdminUserView])
-def get_users_for_admin(db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    users = crud.get_all_users(db)
-    admin_email = os.getenv("ADMIN_EMAIL")
-    for user in users:
-        user.is_admin = (user.email == admin_email)
-    return users
-
-@app.get("/admin/users/{user_id}", response_model=schemas.AdminUserDetailView)
-def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    admin_email = os.getenv("ADMIN_EMAIL")
-    user.is_admin = (user.email == admin_email)
-    return user
-
-@app.put("/admin/users/{user_id}/status", response_model=schemas.AdminUserView)
-def update_user_status_for_admin(user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    user = crud.update_user_status(db, user_id=user_id, is_active=status_update.is_active)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    admin_email = os.getenv("ADMIN_EMAIL")
-    user.is_admin = (user.email == admin_email)
-    return user
-
-@app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    admin_email = os.getenv("ADMIN_EMAIL")
-    user_to_delete = db.query(models.User).filter(models.User.id == user_id).first()
-    if user_to_delete and user_to_delete.email == admin_email:
-        raise HTTPException(status_code=400, detail="Cannot delete the main admin account")
-    
-    success = crud.delete_user(db, user_id=user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found")
-    return

@@ -1,8 +1,9 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { API_URL } from '../config'; // Importamos la URL desde el archivo de configuración central
 
 export const AuthContext = createContext();
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+// Eliminamos la definición de API_URL de este archivo.
 
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -13,6 +14,7 @@ export const AuthProvider = ({ children }) => {
         const fetchUser = async () => {
             if (token) {
                 try {
+                    // Usamos la API_URL importada
                     const response = await fetch(`${API_URL}/users/me/`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
