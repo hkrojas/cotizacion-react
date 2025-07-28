@@ -24,7 +24,6 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     simbolo = "S/" if cotizacion.moneda == "SOLES" else "$"
 
     try:
-        # --- CORRECCIÓN DE RUTA ---
         logo_path = f"logos/{user.logo_filename}" if user.logo_filename else None
         logo = Image(logo_path, width=151, height=76) if logo_path else ""
     except Exception:
@@ -108,22 +107,40 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
         ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
 
-    # --- LÓGICA ACTUALIZADA PARA DATOS PERSONALIZABLES ---
+    # --- LÓGICA ACTUALIZADA PARA DATOS BANCARIOS ---
     note_1_color = colors.HexColor(user.pdf_note_1_color or "#FF0000")
     style_red_bold = ParagraphStyle(name='RedBold', parent=styles['Normal'], textColor=note_1_color, fontName='Helvetica-Bold')
     terminos_1 = Paragraph(user.pdf_note_1 or "", style_red_bold)
     terminos_2 = Paragraph(user.pdf_note_2 or "", styles['Normal'])
     
     bank_info_text = "<b>Datos para la Transferencia</b><br/>"
+    if user.business_name:
+        bank_info_text += f"Beneficiario: {user.business_name.upper()}<br/><br/>"
+
     if user.bank_accounts and isinstance(user.bank_accounts, list):
         for account in user.bank_accounts:
-            if account.get('banco'):
-                bank_info_text += f"<b>{account.get('banco', '')}</b><br/>"
-                if account.get('cuenta'):
-                    bank_info_text += f"Cuenta: {account.get('cuenta', '')}<br/>"
-                if account.get('cci'):
-                    bank_info_text += f"CCI: {account.get('cci', '')}<br/>"
+            banco = account.get('banco', '')
+            tipo_cuenta = account.get('tipo_cuenta', '')
+            moneda = account.get('moneda', 'Soles')
+            cuenta = account.get('cuenta', '')
+            cci = account.get('cci', '')
+
+            if banco:
+                bank_info_text += f"<b>{banco}</b><br/>"
+                
+                # Lógica especial para el Banco de la Nación
+                if 'nación' in banco.lower():
+                    label_cuenta = f"Cuenta Detracción en {moneda}"
+                else:
+                    label_cuenta = f"{tipo_cuenta} en {moneda}"
+
+                if cuenta and cci:
+                    bank_info_text += f"{label_cuenta}: {cuenta} CCI: {cci}<br/>"
+                elif cuenta:
+                    bank_info_text += f"{label_cuenta}: {cuenta}<br/>"
+                
                 bank_info_text += "<br/>"
+
     banco_info = Paragraph(bank_info_text, styles['Normal'])
 
     def agregar_rectangulo_personalizado(canvas, doc):

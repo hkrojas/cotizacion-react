@@ -14,8 +14,9 @@ const ProfilePage = () => {
         business_phone: '', primary_color: '#004aad',
         pdf_note_1: '', pdf_note_1_color: '#FF0000', pdf_note_2: '',
     });
+    // Estado inicial para las cuentas bancarias
     const [bankAccounts, setBankAccounts] = useState([
-        { banco: '', cuenta: '', cci: '' }
+        { banco: '', tipo_cuenta: 'Cta Ahorro', moneda: 'Soles', cuenta: '', cci: '' }
     ]);
     const [lookupRuc, setLookupRuc] = useState('');
     const [logoFile, setLogoFile] = useState(null);
@@ -33,7 +34,8 @@ const ProfilePage = () => {
                 pdf_note_1_color: user.pdf_note_1_color || '#FF0000',
                 pdf_note_2: user.pdf_note_2 || 'LOS PRECIOS NO INCLUYEN ENVIOS',
             });
-            setBankAccounts(Array.isArray(user.bank_accounts) ? user.bank_accounts : []);
+            // Asegurarse de que bank_accounts sea un array antes de establecerlo
+            setBankAccounts(Array.isArray(user.bank_accounts) && user.bank_accounts.length > 0 ? user.bank_accounts : []);
             setLookupRuc(user.business_ruc || '');
         }
     }, [user]);
@@ -47,14 +49,32 @@ const ProfilePage = () => {
     };
 
     const handleBankAccountChange = (index, e) => {
+        const { name, value } = e.target;
         const newAccounts = [...bankAccounts];
-        newAccounts[index][e.target.name] = e.target.value;
+        newAccounts[index][name] = value;
+        
+        // Lógica especial para el Banco de la Nación
+        if (name === 'banco' && value.toLowerCase().includes('nación')) {
+            newAccounts[index].tipo_cuenta = 'Cuenta Detracción';
+        } else if (name === 'banco') {
+            // Si cambian de banco y era Banco de la Nación, volver a un tipo por defecto
+            if (newAccounts[index].tipo_cuenta === 'Cuenta Detracción') {
+                newAccounts[index].tipo_cuenta = 'Cta Ahorro';
+            }
+        }
+        
         setBankAccounts(newAccounts);
     };
 
     const addBankAccount = () => {
         if (bankAccounts.length < 3) {
-            setBankAccounts([...bankAccounts, { banco: '', cuenta: '', cci: '' }]);
+            setBankAccounts([...bankAccounts, { 
+                banco: '', 
+                tipo_cuenta: 'Cta Ahorro', 
+                moneda: 'Soles', 
+                cuenta: '', 
+                cci: '' 
+            }]);
         } else {
             addToast('Puedes agregar un máximo de 3 cuentas bancarias.', 'error');
         }
@@ -72,7 +92,7 @@ const ProfilePage = () => {
         }
         setLoadingConsulta(true);
         try {
-            const response = await fetch(`${API_URL}/consultar-documento`, { // Usar API_URL
+            const response = await fetch(`${API_URL}/consultar-documento`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ tipo_documento: "RUC", numero_documento: lookupRuc })
@@ -95,7 +115,7 @@ const ProfilePage = () => {
         e.preventDefault();
         const profileData = { ...formData, bank_accounts: bankAccounts };
         try {
-            const response = await fetch(`${API_URL}/profile/`, { // Usar API_URL
+            const response = await fetch(`${API_URL}/profile/`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(profileData),
@@ -118,7 +138,7 @@ const ProfilePage = () => {
         const logoFormData = new FormData();
         logoFormData.append('file', logoFile);
         try {
-            const response = await fetch(`${API_URL}/profile/logo/`, { // Usar API_URL
+            const response = await fetch(`${API_URL}/profile/logo/`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: logoFormData,
@@ -161,11 +181,11 @@ const ProfilePage = () => {
             <main className="p-4 sm:p-8">
                 <div className="w-full max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl space-y-10 text-gray-800 dark:text-gray-200">
                     <form onSubmit={handleProfileSubmit} className="space-y-10">
+                        {/* ... (Sección de Información del Negocio y Personalización del PDF sin cambios) ... */}
                         <div className="space-y-4">
                             <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2">Información del Negocio</h2>
                             <div className="flex space-x-2">
                                 <input type="text" placeholder="Autocompletar con RUC..." value={lookupRuc} onChange={(e) => setLookupRuc(e.target.value)} className={inputStyles} />
-                                {/* --- BOTÓN MEJORADO --- */}
                                 <button 
                                     type="button" 
                                     onClick={handleConsultarNegocio} 
@@ -215,36 +235,61 @@ const ProfilePage = () => {
 
                         <div className="space-y-4">
                             <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2">Datos Bancarios</h2>
-                            {bankAccounts.map((account, index) => (
-                                <div key={index} className="p-4 border dark:border-gray-700 rounded-md space-y-3 relative">
-                                    <h3 className="font-semibold">Cuenta {index + 1}</h3>
-                                    {bankAccounts.length > 0 && (
-                                        <button type="button" onClick={() => removeBankAccount(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-transform duration-200 hover:scale-125">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-                                        </button>
-                                    )}
-                                    <div>
-                                        <label className={labelStyles}>Banco</label>
-                                        <input name="banco" value={account.banco} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: Banco de Crédito del Perú"/>
+                            {bankAccounts.map((account, index) => {
+                                const isBancoNacion = account.banco && account.banco.toLowerCase().includes('nación');
+                                
+                                return (
+                                    <div key={index} className="p-4 border dark:border-gray-700 rounded-md space-y-3 relative">
+                                        <h3 className="font-semibold">Cuenta {index + 1}</h3>
+                                        {bankAccounts.length > 0 && (
+                                            <button type="button" onClick={() => removeBankAccount(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-transform duration-200 hover:scale-125">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                                            </button>
+                                        )}
+                                        <div>
+                                            <label className={labelStyles}>Banco</label>
+                                            <input name="banco" value={account.banco} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: Banco de la Nación"/>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={labelStyles}>Tipo de Cuenta</label>
+                                                {isBancoNacion ? (
+                                                    <input value="Cuenta Detracción" readOnly className={`${inputStyles} bg-gray-200 dark:bg-gray-800 cursor-not-allowed`} />
+                                                ) : (
+                                                    <select name="tipo_cuenta" value={account.tipo_cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
+                                                        <option value="Cta Ahorro">Cta Ahorro</option>
+                                                        <option value="Cta Corriente">Cta Corriente</option>
+                                                    </select>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label className={labelStyles}>Moneda</label>
+                                                <select name="moneda" value={account.moneda} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
+                                                    <option value="Soles">Soles</option>
+                                                    <option value="Dólares">Dólares</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className={labelStyles}>Número de Cuenta</label>
+                                            <input name="cuenta" value={account.cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 00045115666"/>
+                                        </div>
+                                        <div>
+                                            <label className={labelStyles}>CCI</label>
+                                            <input name="cci" value={account.cci} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 01804500004511566655"/>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className={labelStyles}>Cuenta</label>
-                                        <input name="cuenta" value={account.cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 191-XXXXXXXX-X-XX"/>
-                                    </div>
-                                    <div>
-                                        <label className={labelStyles}>CCI</label>
-                                        <input name="cci" value={account.cci} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 002191XXXXXXXXXXXXXX"/>
-                                    </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                             {bankAccounts.length < 3 && (
                                 <button type="button" onClick={addBankAccount} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 font-bold py-2 px-4 rounded-md transition-all duration-200 active:scale-95">
                                     + Agregar Cuenta Bancaria
                                 </button>
                             )}
                         </div>
-
-                        {/* --- BOTÓN MEJORADO --- */}
+                        
                         <button 
                             type="submit" 
                             className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-semibold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
@@ -270,7 +315,6 @@ const ProfilePage = () => {
                                 <label className={labelStyles}>{user && user.logo_filename ? 'Reemplazar logo' : 'Subir logo (PNG o JPG)'}</label>
                                 <input type="file" onChange={handleFileChange} accept="image/png, image/jpeg" className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300 dark:hover:file:bg-gray-600" />
                             </div>
-                            {/* --- BOTÓN MEJORADO --- */}
                             <button 
                                 type="submit" 
                                 className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"

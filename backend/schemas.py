@@ -32,9 +32,12 @@ class Cotizacion(CotizacionBase):
     productos: List[Producto] = []
     model_config = ConfigDict(from_attributes=True)
 
-# --- NUEVO ESQUEMA PARA CUENTA BANCARIA ---
+# --- ESQUEMA DE CUENTA BANCARIA ACTUALIZADO ---
+# Se añaden los campos tipo_cuenta y moneda para cumplir con los nuevos requisitos.
 class BankAccount(BaseModel):
     banco: str
+    tipo_cuenta: str  # Nuevo campo: Ahorro, Corriente, Detracción
+    moneda: str       # Nuevo campo: Soles, Dolares
     cuenta: str
     cci: str
 
@@ -45,7 +48,6 @@ class ProfileUpdate(BaseModel):
     business_ruc: Optional[str] = None
     business_phone: Optional[str] = None
     primary_color: Optional[str] = None
-    # Añadimos los nuevos campos para que puedan ser actualizados
     pdf_note_1: Optional[str] = None
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
@@ -65,7 +67,6 @@ class User(UserBase):
     business_phone: Optional[str] = None
     logo_filename: Optional[str] = None
     primary_color: Optional[str] = None
-    # Añadimos los nuevos campos para que se envíen al frontend
     pdf_note_1: Optional[str] = None
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
