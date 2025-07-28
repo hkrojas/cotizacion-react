@@ -44,6 +44,7 @@ const LoginPage = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
                     <UserIcon />
+                    {/* --- CORRECCIÓN: Atributos para autocompletado --- */}
                     <input 
                         id="email"
                         name="email"
@@ -58,6 +59,7 @@ const LoginPage = () => {
                 </div>
                 <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
                     <LockIcon />
+                    {/* --- CORRECCIÓN: Atributos para autocompletado --- */}
                     <input 
                         id="password"
                         name="password"
