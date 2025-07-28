@@ -11,4 +11,4 @@ fastapi-cors
 psycopg2-binary
 pydantic[email]
 python-dateutil
-bcrypt<4.0.0
+bcrypt==3.2.2
