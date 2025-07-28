@@ -1,5 +1,5 @@
 import io
-import os # Importamos 'os' para verificar la existencia de archivos
+import os
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Image, Spacer, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -24,8 +24,6 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     color_principal = colors.HexColor(user.primary_color or '#004aad')
     simbolo = "S/" if cotizacion.moneda == "SOLES" else "$"
 
-    # --- CORRECCIÓN: LÓGICA ROBUSTA PARA EL LOGO ---
-    # Se verifica si el archivo del logo existe físicamente antes de intentar usarlo.
     logo = ""
     if user.logo_filename:
         logo_path = f"logos/{user.logo_filename}"
@@ -33,8 +31,7 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
             try:
                 logo = Image(logo_path, width=151, height=76)
             except Exception:
-                logo = "" # Si hay algún error al leer la imagen, no se incluye
-    # --- FIN DE LA CORRECCIÓN ---
+                logo = ""
     
     data_principal = [
         [logo, user.business_name or "Nombre del Negocio", f"RUC {user.business_ruc or 'NO ESPECIFICADO'}"],
@@ -126,8 +123,14 @@ def create_pdf_buffer(cotizacion: models.Cotizacion, user: models.User):
     if user.bank_accounts and isinstance(user.bank_accounts, list):
         for account in user.bank_accounts:
             banco = account.get('banco', '')
-            tipo_cuenta = account.get('tipo_cuenta', '')
-            moneda = account.get('moneda', 'Soles')
+            
+            # --- CORRECCIÓN FINAL ---
+            # Si 'tipo_cuenta' o 'moneda' no existen o son None, se asigna un valor por defecto.
+            # Esto soluciona el problema de "en None" para los datos antiguos.
+            tipo_cuenta = account.get('tipo_cuenta') or 'Cta Ahorro'
+            moneda = account.get('moneda') or 'Soles'
+            # --- FIN DE LA CORRECCIÓN ---
+
             cuenta = account.get('cuenta', '')
             cci = account.get('cci', '')
 
