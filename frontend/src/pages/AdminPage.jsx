@@ -7,10 +7,11 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
 import { API_URL } from '../context/AuthContext';
 
-// --- NUEVO COMPONENTE: MODAL DE DETALLES DE USUARIO ---
+// --- COMPONENTE: MODAL DE DETALLES DE USUARIO ---
 const UserDetailsModal = ({ userId, onClose, token }) => {
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { addToast } = useContext(ToastContext);
 
     useEffect(() => {
         const fetchUserDetails = async () => {
@@ -23,15 +24,36 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
                 const data = await response.json();
                 setUserData(data);
             } catch (err) {
-                // Idealmente, aquí se usaría un toast context
-                console.error(err.message);
+                addToast(err.message, 'error');
                 onClose();
             } finally {
                 setLoading(false);
             }
         };
         fetchUserDetails();
-    }, [userId, token, onClose]);
+    }, [userId, token, onClose, addToast]);
+
+    const handleDownloadPdf = async (cot) => {
+        try {
+            // Usa el nuevo endpoint de admin para descargar el PDF
+            const response = await fetch(`${API_URL}/admin/cotizaciones/${cot.id}/pdf`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Error al generar el PDF.');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const sanitizedClientName = cot.nombre_cliente.replace(/ /g, '_').replace(/[\\/*?:"<>|]/g, '');
+            a.download = `Cotizacion_${cot.numero_cotizacion}_${sanitizedClientName}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url); // Limpia la URL del objeto
+        } catch (err) {
+            addToast(err.message, 'error');
+        }
+    };
 
     const formatDate = (dateString) => new Date(dateString).toLocaleDateString('es-ES');
 
@@ -46,27 +68,47 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
                     <LoadingSpinner message="Cargando detalles..." />
                 ) : userData ? (
                     <div className="mt-4 space-y-6">
-                        {/* Sección de Datos del Negocio */}
-                        <div className="space-y-2">
-                            <h4 className="font-semibold text-lg">Información del Negocio</h4>
-                            <p><strong>Email:</strong> {userData.email}</p>
-                            <p><strong>Nombre:</strong> {userData.business_name || 'No especificado'}</p>
-                            <p><strong>RUC:</strong> {userData.business_ruc || 'No especificado'}</p>
-                            <p><strong>Dirección:</strong> {userData.business_address || 'No especificado'}</p>
-                            <p><strong>Teléfono:</strong> {userData.business_phone || 'No especificado'}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <h4 className="font-semibold text-lg">Información del Negocio</h4>
+                                <p><strong>Email:</strong> {userData.email}</p>
+                                <p><strong>Nombre:</strong> {userData.business_name || 'No especificado'}</p>
+                                <p><strong>RUC:</strong> {userData.business_ruc || 'No especificado'}</p>
+                                <p><strong>Dirección:</strong> {userData.business_address || 'No especificado'}</p>
+                                <p><strong>Teléfono:</strong> {userData.business_phone || 'No especificado'}</p>
+                            </div>
+                            {userData.logo_filename && (
+                                <div className="space-y-2">
+                                     <h4 className="font-semibold text-lg">Logo</h4>
+                                     <div className="p-2 border border-dashed rounded-md inline-block">
+                                        <img src={`${API_URL}/logos/${userData.logo_filename}`} alt="Logo" className="max-h-20"/>
+                                     </div>
+                                     <a
+                                        href={`${API_URL}/logos/${userData.logo_filename}`}
+                                        download
+                                        className="mt-2 inline-block px-3 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800"
+                                     >
+                                         Descargar Logo
+                                     </a>
+                                </div>
+                            )}
                         </div>
-                        {/* Sección de Cotizaciones */}
                         <div>
                             <h4 className="font-semibold text-lg mt-6 border-t pt-4 dark:border-gray-700">Cotizaciones ({userData.cotizaciones.length})</h4>
                             {userData.cotizaciones.length > 0 ? (
                                 <ul className="divide-y dark:divide-gray-700">
                                     {userData.cotizaciones.map(cot => (
-                                        <li key={cot.id} className="py-2">
-                                            <div className="flex justify-between">
+                                        <li key={cot.id} className="py-2 flex justify-between items-center">
+                                            <div>
                                                 <span>N° {cot.numero_cotizacion} - {cot.nombre_cliente}</span>
-                                                <span className="font-semibold">{cot.moneda === 'SOLES' ? 'S/' : '$'} {cot.monto_total.toFixed(2)}</span>
+                                                <span className="block text-xs text-gray-500">{formatDate(cot.fecha_creacion)}</span>
                                             </div>
-                                            <span className="text-xs text-gray-500">{formatDate(cot.fecha_creacion)}</span>
+                                            <div className="flex items-center space-x-4">
+                                                <span className="font-semibold">{cot.moneda === 'SOLES' ? 'S/' : '$'} {cot.monto_total.toFixed(2)}</span>
+                                                <button onClick={() => handleDownloadPdf(cot)} className="px-3 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800">
+                                                    PDF
+                                                </button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -84,13 +126,14 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
 };
 
 
+// --- COMPONENTE PRINCIPAL DE LA PÁGINA DE ADMIN ---
 const AdminPage = () => {
     const { token } = useContext(AuthContext);
     const { addToast } = useContext(ToastContext);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [deletingUser, setDeletingUser] = useState(null);
-    const [viewingUserId, setViewingUserId] = useState(null); // Para el modal de detalles
+    const [viewingUserId, setViewingUserId] = useState(null);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -186,7 +229,6 @@ const AdminPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center space-x-2">
-                                                {/* --- BOTONES REDISEÑADOS Y NUEVO BOTÓN "VER" --- */}
                                                 <button onClick={() => setViewingUserId(user.id)} className="px-3 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800">
                                                     Ver Detalles
                                                 </button>
