@@ -3,7 +3,24 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
-import { API_URL } from '../context/AuthContext'; // Importar API_URL
+import { API_URL } from '../context/AuthContext';
+
+// Función para parsear errores de FastAPI (la moveremos aquí para que esté disponible)
+const parseApiError = (errorData) => {
+    if (errorData.detail) {
+        if (typeof errorData.detail === 'string') {
+            return errorData.detail;
+        }
+        if (Array.isArray(errorData.detail)) {
+            return errorData.detail.map(err => {
+                const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : 'field';
+                return `${field}: ${err.msg}`;
+            }).join('; ');
+        }
+    }
+    return 'Ocurrió un error desconocido al procesar la respuesta del servidor.';
+};
+
 
 const ProfilePage = () => {
     const { user, token, updateUser } = useContext(AuthContext);
@@ -14,10 +31,7 @@ const ProfilePage = () => {
         business_phone: '', primary_color: '#004aad',
         pdf_note_1: '', pdf_note_1_color: '#FF0000', pdf_note_2: '',
     });
-    // Estado inicial para las cuentas bancarias
-    const [bankAccounts, setBankAccounts] = useState([
-        { banco: '', tipo_cuenta: 'Cta Ahorro', moneda: 'Soles', cuenta: '', cci: '' }
-    ]);
+    const [bankAccounts, setBankAccounts] = useState([]);
     const [lookupRuc, setLookupRuc] = useState('');
     const [logoFile, setLogoFile] = useState(null);
     const [loadingConsulta, setLoadingConsulta] = useState(false);
@@ -34,7 +48,6 @@ const ProfilePage = () => {
                 pdf_note_1_color: user.pdf_note_1_color || '#FF0000',
                 pdf_note_2: user.pdf_note_2 || 'LOS PRECIOS NO INCLUYEN ENVIOS',
             });
-            // Asegurarse de que bank_accounts sea un array antes de establecerlo
             setBankAccounts(Array.isArray(user.bank_accounts) && user.bank_accounts.length > 0 ? user.bank_accounts : []);
             setLookupRuc(user.business_ruc || '');
         }
@@ -53,11 +66,9 @@ const ProfilePage = () => {
         const newAccounts = [...bankAccounts];
         newAccounts[index][name] = value;
         
-        // Lógica especial para el Banco de la Nación
         if (name === 'banco' && value.toLowerCase().includes('nación')) {
             newAccounts[index].tipo_cuenta = 'Cuenta Detracción';
         } else if (name === 'banco') {
-            // Si cambian de banco y era Banco de la Nación, volver a un tipo por defecto
             if (newAccounts[index].tipo_cuenta === 'Cuenta Detracción') {
                 newAccounts[index].tipo_cuenta = 'Cta Ahorro';
             }
@@ -120,7 +131,12 @@ const ProfilePage = () => {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(profileData),
             });
-            if (!response.ok) throw new Error('Error al guardar el perfil.');
+            // --- CORRECCIÓN: MANEJO DE ERRORES DETALLADO ---
+            if (!response.ok) {
+                const errData = await response.json();
+                const errorMessage = parseApiError(errData);
+                throw new Error(errorMessage);
+            }
             const updatedUser = await response.json();
             updateUser(updatedUser);
             addToast('Perfil guardado con éxito.', 'success');
@@ -181,7 +197,6 @@ const ProfilePage = () => {
             <main className="p-4 sm:p-8">
                 <div className="w-full max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl space-y-10 text-gray-800 dark:text-gray-200">
                     <form onSubmit={handleProfileSubmit} className="space-y-10">
-                        {/* ... (Sección de Información del Negocio y Personalización del PDF sin cambios) ... */}
                         <div className="space-y-4">
                             <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2">Información del Negocio</h2>
                             <div className="flex space-x-2">

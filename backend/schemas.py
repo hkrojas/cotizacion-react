@@ -33,11 +33,10 @@ class Cotizacion(CotizacionBase):
     model_config = ConfigDict(from_attributes=True)
 
 # --- ESQUEMA DE CUENTA BANCARIA ACTUALIZADO ---
-# Se añaden los campos tipo_cuenta y moneda para cumplir con los nuevos requisitos.
 class BankAccount(BaseModel):
     banco: str
-    tipo_cuenta: str  # Nuevo campo: Ahorro, Corriente, Detracción
-    moneda: str       # Nuevo campo: Soles, Dolares
+    tipo_cuenta: str
+    moneda: str
     cuenta: str
     cci: str
 
@@ -70,7 +69,8 @@ class User(UserBase):
     pdf_note_1: Optional[str] = None
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
-    bank_accounts: Optional[Any] = None # 'Any' para compatibilidad con JSONB
+    # --- CORRECCIÓN: Usar el tipo específico para consistencia ---
+    bank_accounts: Optional[List[BankAccount]] = None
     cotizaciones: List[Cotizacion] = []
     model_config = ConfigDict(from_attributes=True)
 
