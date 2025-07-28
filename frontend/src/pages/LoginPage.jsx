@@ -18,7 +18,9 @@ const LoginPage = () => {
     const [deactivationError, setDeactivationError] = useState(null);
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        // 1. Previene que el formulario se envíe de la manera tradicional
+        e.preventDefault(); 
+        
         const formData = new URLSearchParams();
         formData.append('username', email);
         formData.append('password', password);
@@ -38,9 +40,11 @@ const LoginPage = () => {
             login(data.access_token);
             addToast('¡Inicio de sesión exitoso!', 'success');
 
+            // 4. Se añade un pequeño retraso antes de navegar.
+            // Esto es crucial para darle tiempo al navegador a que ofrezca guardar la contraseña.
             setTimeout(() => {
                 navigate('/dashboard');
-            }, 100);
+            }, 150);
 
         } catch (err) {
             if (err.message && err.message.includes('Su cuenta ha sido desactivada')) {
@@ -54,13 +58,14 @@ const LoginPage = () => {
     return (
         <>
             <AuthLayout title="Iniciar Sesión">
-                {/* --- CAMBIO FINAL APLICADO --- */}
-                {/* Se añaden los atributos 'action' y 'method' al formulario */}
-                <form onSubmit={handleSubmit} className="space-y-6" action="/login" method="post">
+                {/* 2. Se añaden los atributos 'action' y 'method' al formulario. */}
+                {/* Esto es fundamental para que los navegadores lo reconozcan como un formulario de login. */}
+                <form onSubmit={handleSubmit} className="space-y-6" action="/token" method="post">
                     <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
                         <UserIcon />
                         <input 
                             id="email"
+                            // 3. Se asegura que los atributos 'name' y 'autoComplete' sean los correctos.
                             name="username" 
                             type="email" 
                             autoComplete="username"
