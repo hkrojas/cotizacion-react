@@ -22,7 +22,7 @@ app.mount("/logos", StaticFiles(directory="logos"), name="logos")
 
 origins = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "http://12-7.0.0.1:5173",
     "https://cotizacion-react-bice.vercel.app" # Asegúrate de que esta sea la URL correcta de tu frontend en Vercel
 ]
 
@@ -184,6 +184,27 @@ def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), curren
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
     
     pdf_buffer = pdf_generator.create_pdf_buffer(cotizacion, current_user)
+    
+    sanitized_client_name = sanitize_filename(cotizacion.nombre_cliente)
+    filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitized_client_name}.pdf"
+    
+    headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
+    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
+
+# --- NUEVO ENDPOINT DE ADMIN PARA DESCARGAR PDF ---
+@app.get("/admin/cotizaciones/{cotizacion_id}/pdf")
+def get_admin_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    # El admin puede buscar cualquier cotización por ID, sin filtrar por owner_id
+    cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id).first()
+    if not cotizacion:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    
+    # Obtenemos el usuario dueño de la cotización para los datos del PDF
+    quote_owner = cotizacion.owner
+    if not quote_owner:
+         raise HTTPException(status_code=404, detail="No se encontró el dueño de la cotización")
+
+    pdf_buffer = pdf_generator.create_pdf_buffer(cotizacion, quote_owner)
     
     sanitized_client_name = sanitize_filename(cotizacion.nombre_cliente)
     filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitized_client_name}.pdf"
