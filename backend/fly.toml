@@ -18,3 +18,10 @@ primary_region = 'bog'
 
 [[vm]]
   size = 'shared-cpu-1x'
+
+# --- SECCIÓN AÑADIDA PARA MONTAR EL VOLUMEN ---
+# Esto conecta el volumen 'logos_data' a la carpeta '/code/logos' de tu aplicación,
+# haciendo que el almacenamiento de los logos sea permanente.
+[mounts]
+  source="logos_data"
+  destination="/code/logos"
