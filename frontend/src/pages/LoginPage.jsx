@@ -5,7 +5,7 @@ import AuthLayout from '../components/AuthLayout';
 import UserIcon from '../components/UserIcon';
 import LockIcon from '../components/LockIcon';
 import { ToastContext } from '../context/ToastContext';
-import { API_URL } from '../context/AuthContext'; // Importar API_URL
+import { API_URL } from '../context/AuthContext';
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -21,7 +21,7 @@ const LoginPage = () => {
         formData.append('username', email);
         formData.append('password', password);
         try {
-            const response = await fetch(`${API_URL}/token`, { // Usar API_URL
+            const response = await fetch(`${API_URL}/token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData,
@@ -45,7 +45,10 @@ const LoginPage = () => {
                 <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
                     <UserIcon />
                     <input 
+                        id="email"
+                        name="email"
                         type="email" 
+                        autoComplete="username"
                         value={email} 
                         onChange={(e) => setEmail(e.target.value)} 
                         required 
@@ -56,7 +59,10 @@ const LoginPage = () => {
                 <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
                     <LockIcon />
                     <input 
+                        id="password"
+                        name="password"
                         type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
                         value={password} 
                         onChange={(e) => setPassword(e.target.value)} 
                         required 
@@ -74,7 +80,6 @@ const LoginPage = () => {
                         )}
                     </svg>
                 </div>
-                {/* --- BOTÓN MEJORADO --- */}
                 <button 
                     type="submit" 
                     className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-md transition-all duration-300 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
