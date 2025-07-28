@@ -23,7 +23,7 @@ app.mount("/logos", StaticFiles(directory="logos"), name="logos")
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://cotizacion-react-bice.vercel.app"
+    "https://cotizacion-react-bice.vercel.app" # Asegúrate de que esta sea la URL correcta de tu frontend en Vercel
 ]
 
 app.add_middleware(
@@ -61,20 +61,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None: 
         raise credentials_exception
     
-    # --- LÓGICA PARA ASIGNAR ROL DE ADMIN ---
-    # Comprueba si el email del usuario coincide con el del admin en .env
+    # Asigna el rol de admin dinámicamente basado en la variable de entorno
     admin_email = os.getenv("ADMIN_EMAIL")
-    if user.email == admin_email:
-        user.is_admin = True
-    else:
-        user.is_admin = False
+    user.is_admin = user.email == admin_email
         
     return user
 
-# --- NUEVA DEPENDENCIA PARA PROTEGER RUTAS DE ADMIN ---
 def get_current_admin_user(current_user: models.User = Depends(get_current_user)):
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
     return current_user
 
 # --- Endpoints de Autenticación ---
@@ -127,7 +122,31 @@ def consultar_documento(consulta: schemas.DocumentoConsulta, current_user: model
 @app.post("/cotizaciones/", response_model=schemas.Cotizacion)
 def create_new_cotizacion(cotizacion: schemas.CotizacionCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.create_cotizacion(db=db, cotizacion=cotizacion, user_id=current_user.id)
-# ... (otros endpoints de cotizaciones sin cambios) ...
+
+@app.get("/cotizaciones/", response_model=List[schemas.Cotizacion])
+def read_cotizaciones(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return crud.get_cotizaciones_by_owner(db=db, owner_id=current_user.id)
+
+@app.get("/cotizaciones/{cotizacion_id}", response_model=schemas.Cotizacion)
+def read_single_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    db_cotizacion = crud.get_cotizacion_by_id(db, cotizacion_id=cotizacion_id, owner_id=current_user.id)
+    if db_cotizacion is None:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    return db_cotizacion
+
+@app.put("/cotizaciones/{cotizacion_id}", response_model=schemas.Cotizacion)
+def update_single_cotizacion(cotizacion_id: int, cotizacion: schemas.CotizacionCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    updated_cotizacion = crud.update_cotizacion(db, cotizacion_id=cotizacion_id, cotizacion_data=cotizacion, owner_id=current_user.id)
+    if updated_cotizacion is None:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    return updated_cotizacion
+
+@app.delete("/cotizaciones/{cotizacion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_single_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    success = crud.delete_cotizacion(db, cotizacion_id=cotizacion_id, owner_id=current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    return {"ok": True}
 
 # --- Endpoints para Perfil y PDF ---
 @app.put("/profile/", response_model=schemas.User)
@@ -172,15 +191,24 @@ def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), curren
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
 
-# --- NUEVOS ENDPOINTS DE ADMINISTRADOR ---
+# --- Endpoints de Administrador ---
 @app.get("/admin/users/", response_model=List[schemas.AdminUserView])
 def get_users_for_admin(db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     users = crud.get_all_users(db)
-    # Asignar el flag 'is_admin' dinámicamente para la respuesta
     admin_email = os.getenv("ADMIN_EMAIL")
     for user in users:
         user.is_admin = (user.email == admin_email)
     return users
+
+@app.get("/admin/users/{user_id}", response_model=schemas.AdminUserDetailView)
+def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    admin_email = os.getenv("ADMIN_EMAIL")
+    user.is_admin = (user.email == admin_email)
+    return user
 
 @app.put("/admin/users/{user_id}/status", response_model=schemas.AdminUserView)
 def update_user_status_for_admin(user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):

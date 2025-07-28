@@ -14,7 +14,7 @@ class Producto(ProductoBase):
     cotizacion_id: int
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquemas de Cotización ---
+# --- Esquemas de Cotización (sin cambios) ---
 class CotizacionBase(BaseModel):
     nombre_cliente: str = Field(..., min_length=1)
     direccion_cliente: str
@@ -60,7 +60,6 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     is_active: bool
-    # --- AÑADIMOS is_admin AL ESQUEMA DE RESPUESTA ---
     is_admin: bool
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -75,7 +74,7 @@ class User(UserBase):
     cotizaciones: List[Cotizacion] = []
     model_config = ConfigDict(from_attributes=True)
 
-# --- NUEVOS ESQUEMAS PARA EL PANEL DE ADMIN ---
+# --- Esquemas de Admin ---
 class AdminUserView(BaseModel):
     id: int
     email: str
@@ -85,6 +84,10 @@ class AdminUserView(BaseModel):
 
 class UserStatusUpdate(BaseModel):
     is_active: bool
+
+# --- NUEVO ESQUEMA PARA VER DETALLES DE USUARIO ---
+class AdminUserDetailView(User): # Hereda todos los campos de User
+    pass
 
 # --- Esquemas de Token y DocumentoConsulta ---
 class Token(BaseModel):
