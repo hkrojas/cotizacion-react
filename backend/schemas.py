@@ -1,8 +1,11 @@
+# backend/schemas.py
+# MODIFICADO PARA AÑADIR MOTIVO DE DESACTIVACIÓN
+
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
-from typing import List, Optional, Any
+from typing import List, Optional
 from datetime import datetime
 
-# --- Esquemas de Producto ---
+# --- Esquemas de Producto (sin cambios) ---
 class ProductoBase(BaseModel):
     descripcion: str = Field(..., min_length=1)
     unidades: int = Field(..., gt=0)
@@ -32,7 +35,7 @@ class Cotizacion(CotizacionBase):
     productos: List[Producto] = []
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquema de Cuenta Bancaria ---
+# --- Esquema de Cuenta Bancaria (sin cambios) ---
 class BankAccount(BaseModel):
     banco: str
     tipo_cuenta: Optional[str] = None
@@ -40,7 +43,7 @@ class BankAccount(BaseModel):
     cuenta: str
     cci: str
 
-# --- Esquema de Perfil ---
+# --- Esquema de Perfil (sin cambios) ---
 class ProfileUpdate(BaseModel):
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -61,6 +64,8 @@ class User(UserBase):
     id: int
     is_active: bool
     is_admin: bool
+    # --- AÑADIMOS EL NUEVO CAMPO A LA RESPUESTA ---
+    deactivation_reason: Optional[str] = None
     business_name: Optional[str] = None
     business_address: Optional[str] = None
     business_ruc: Optional[str] = None
@@ -80,16 +85,18 @@ class AdminUserView(BaseModel):
     email: str
     is_active: bool
     is_admin: bool
+    deactivation_reason: Optional[str] = None # Añadido para vista de admin
     model_config = ConfigDict(from_attributes=True)
 
+# --- NUEVO ESQUEMA PARA ACTUALIZAR ESTADO CON MOTIVO ---
 class UserStatusUpdate(BaseModel):
     is_active: bool
+    deactivation_reason: Optional[str] = None
 
-# --- NUEVO ESQUEMA PARA VER DETALLES DE USUARIO ---
-class AdminUserDetailView(User): # Hereda todos los campos de User
+class AdminUserDetailView(User):
     pass
 
-# --- Esquemas de Token y DocumentoConsulta ---
+# --- Esquemas de Token y DocumentoConsulta (sin cambios) ---
 class Token(BaseModel):
     access_token: str
     token_type: str

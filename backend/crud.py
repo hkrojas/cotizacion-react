@@ -1,3 +1,6 @@
+# backend/crud.py
+# MODIFICADO PARA MANEJAR MOTIVO DE DESACTIVACIÓN
+
 from sqlalchemy.orm import Session
 import models, schemas, security
 
@@ -16,12 +19,12 @@ def create_user(db: Session, user: schemas.UserCreate):
 def authenticate_user(db: Session, email: str, password: str):
     user = get_user_by_email(db, email=email)
     if not user:
-        return False
+        return None # Cambiado a None para ser más explícito
     if not security.verify_password(password, user.hashed_password):
-        return False
+        return None # Cambiado a None
     return user
 
-# --- Funciones de Cotización ---
+# --- Funciones de Cotización (sin cambios) ---
 def get_next_cotizacion_number(db: Session):
     last_cotizacion = db.query(models.Cotizacion).order_by(models.Cotizacion.id.desc()).first()
     if not last_cotizacion or not last_cotizacion.numero_cotizacion:
@@ -75,14 +78,21 @@ def delete_cotizacion(db: Session, cotizacion_id: int, owner_id: int):
     db.commit()
     return True
 
-# --- NUEVAS FUNCIONES DE ADMINISTRADOR ---
+# --- Funciones de Administrador ---
 def get_all_users(db: Session):
     return db.query(models.User).all()
 
-def update_user_status(db: Session, user_id: int, is_active: bool):
+# --- MODIFICACIÓN: AHORA ACEPTA EL MOTIVO DE DESACTIVACIÓN ---
+def update_user_status(db: Session, user_id: int, is_active: bool, deactivation_reason: str = None):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:
         db_user.is_active = is_active
+        if not is_active:
+            # Si se está desactivando, guardamos el motivo
+            db_user.deactivation_reason = deactivation_reason
+        else:
+            # Si se está reactivando, limpiamos el motivo
+            db_user.deactivation_reason = None
         db.commit()
         db.refresh(db_user)
     return db_user

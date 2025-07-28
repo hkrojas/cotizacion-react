@@ -5,9 +5,10 @@ import { ToastContext } from '../context/ToastContext';
 import ThemeToggle from '../components/ThemeToggle';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
-import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
+import DeactivationModal from '../components/DeactivationModal'; // 1. Importamos el nuevo modal
+import { API_URL } from '../config';
 
-// --- COMPONENTE: MODAL DE DETALLES DE USUARIO ---
+// --- (El componente UserDetailsModal no cambia, lo omitimos por brevedad pero debe permanecer en tu archivo) ---
 const UserDetailsModal = ({ userId, onClose, token }) => {
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -17,7 +18,6 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
         const fetchUserDetails = async () => {
             setLoading(true);
             try {
-                // Usamos la API_URL importada
                 const response = await fetch(`${API_URL}/admin/users/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -36,7 +36,6 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
 
     const handleDownloadPdf = async (cot) => {
         try {
-            // Usa el nuevo endpoint de admin para descargar el PDF
             const response = await fetch(`${API_URL}/admin/cotizaciones/${cot.id}/pdf`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -50,7 +49,7 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
             document.body.appendChild(a);
             a.click();
             a.remove();
-            window.URL.revokeObjectURL(url); // Limpia la URL del objeto
+            window.URL.revokeObjectURL(url);
         } catch (err) {
             addToast(err.message, 'error');
         }
@@ -69,6 +68,7 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
                     <LoadingSpinner message="Cargando detalles..." />
                 ) : userData ? (
                     <div className="mt-4 space-y-6">
+                        {/* Contenido del modal de detalles */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <h4 className="font-semibold text-lg">Información del Negocio</h4>
@@ -127,7 +127,6 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
 };
 
 
-// --- COMPONENTE PRINCIPAL DE LA PÁGINA DE ADMIN ---
 const AdminPage = () => {
     const { token } = useContext(AuthContext);
     const { addToast } = useContext(ToastContext);
@@ -135,11 +134,11 @@ const AdminPage = () => {
     const [loading, setLoading] = useState(true);
     const [deletingUser, setDeletingUser] = useState(null);
     const [viewingUserId, setViewingUserId] = useState(null);
+    const [deactivatingUser, setDeactivatingUser] = useState(null); // 2. Nuevo estado para el modal
 
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/admin/users/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -158,28 +157,49 @@ const AdminPage = () => {
     }, [token]);
 
     const handleToggleActive = async (user) => {
+        // Esta función ahora solo se usará para ACTIVAR
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/admin/users/${user.id}/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ is_active: !user.is_active })
+                body: JSON.stringify({ is_active: true, deactivation_reason: null })
             });
-            if (!response.ok) throw new Error('Error al cambiar el estado del usuario.');
-            addToast(`Usuario ${user.email} ${!user.is_active ? 'activado' : 'desactivado'}.`, 'success');
+            if (!response.ok) throw new Error('Error al activar el usuario.');
+            addToast(`Usuario ${user.email} activado.`, 'success');
             fetchUsers();
         } catch (err) {
             addToast(err.message, 'error');
         }
     };
 
+    // 3. Nueva función para confirmar la DESACTIVACIÓN
+    const handleConfirmDeactivation = async (reason) => {
+        if (!deactivatingUser) return;
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${deactivatingUser.id}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ is_active: false, deactivation_reason: reason })
+            });
+            if (!response.ok) throw new Error('Error al desactivar el usuario.');
+            addToast(`Usuario ${deactivatingUser.email} desactivado.`, 'success');
+            setDeactivatingUser(null);
+            fetchUsers();
+        } catch (err) {
+            addToast(err.message, 'error');
+            setDeactivatingUser(null);
+        }
+    };
+
     const confirmDelete = async () => {
         if (!deletingUser) return;
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/admin/users/${deletingUser.id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -238,9 +258,15 @@ const AdminPage = () => {
                                                 </button>
                                                 {!user.is_admin && (
                                                     <>
-                                                        <button onClick={() => handleToggleActive(user)} className={`px-3 py-1 text-xs font-semibold rounded-full ${user.is_active ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:hover:bg-yellow-800' : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800'}`}>
-                                                            {user.is_active ? 'Desactivar' : 'Activar'}
-                                                        </button>
+                                                        {user.is_active ? (
+                                                            <button onClick={() => setDeactivatingUser(user)} className="px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:hover:bg-yellow-800">
+                                                                Desactivar
+                                                            </button>
+                                                        ) : (
+                                                            <button onClick={() => handleToggleActive(user)} className="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800">
+                                                                Activar
+                                                            </button>
+                                                        )}
                                                         <button onClick={() => setDeletingUser(user)} className="px-3 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800">
                                                             Eliminar
                                                         </button>
@@ -261,6 +287,13 @@ const AdminPage = () => {
                 onConfirm={confirmDelete}
                 title="Eliminar Usuario"
                 message={`¿Estás seguro de que quieres eliminar la cuenta de ${deletingUser?.email}? Esta acción no se puede deshacer.`}
+            />
+            {/* 4. Renderizamos el nuevo modal */}
+            <DeactivationModal
+                isOpen={!!deactivatingUser}
+                onClose={() => setDeactivatingUser(null)}
+                onConfirm={handleConfirmDeactivation}
+                userEmail={deactivatingUser?.email}
             />
             {viewingUserId && (
                 <UserDetailsModal userId={viewingUserId} onClose={() => setViewingUserId(null)} token={token} />

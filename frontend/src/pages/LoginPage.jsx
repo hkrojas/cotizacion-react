@@ -5,7 +5,7 @@ import AuthLayout from '../components/AuthLayout';
 import UserIcon from '../components/UserIcon';
 import LockIcon from '../components/LockIcon';
 import { ToastContext } from '../context/ToastContext';
-import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
+import { API_URL } from '../config';
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -21,22 +21,29 @@ const LoginPage = () => {
         formData.append('username', email);
         formData.append('password', password);
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData,
             });
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.detail || 'Email o contraseña incorrectos.');
-            }
+            
+            // Leemos la respuesta de la API
             const data = await response.json();
+
+            // Si la respuesta no es exitosa (ej. 401 Unauthorized)
+            if (!response.ok) {
+                // Lanzamos un error con el mensaje detallado que viene del backend
+                throw new Error(data.detail || 'Email o contraseña incorrectos.');
+            }
+
+            // Si todo fue exitoso, procedemos con el login
             login(data.access_token);
             addToast('¡Inicio de sesión exitoso!', 'success');
             navigate('/dashboard');
         } catch (err)
         {
+            // El Toast mostrará el mensaje de error específico del backend
+            // (ej: "Su cuenta ha sido desactivada. Motivo: ...")
             addToast(err.message, 'error');
         }
     };

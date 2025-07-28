@@ -1,5 +1,5 @@
 # backend/main.py
-# MODIFICADO PARA USAR CONFIGURACIÓN CENTRALIZADA Y MEJORAR SEGURIDAD
+# MODIFICADO PARA MANEJAR MOTIVO DE DESACTIVACIÓN
 
 import requests
 import os
@@ -14,20 +14,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-# Importaciones de la aplicación
 import crud, models, schemas, security, pdf_generator
 from database import SessionLocal, engine
-from config import settings # Importamos la configuración centralizada
+from config import settings
 
-# Creación de tablas en la base de datos
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Montar directorio estático para logos
 app.mount("/logos", StaticFiles(directory="logos"), name="logos")
 
-# Configuración de CORS
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -41,7 +37,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Autenticación y Dependencias ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def get_db():
@@ -70,7 +65,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     
-    # Asigna el rol de admin dinámicamente
     user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return user
 
@@ -86,11 +80,22 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Email o contraseña incorrectos.",
             headers={"WWW-Authenticate": "Bearer"}
         )
+    
+    # --- NUEVA VERIFICACIÓN: COMPROBAR SI EL USUARIO ESTÁ ACTIVO ---
+    if not user.is_active:
+        reason = user.deactivation_reason or "Contacte al administrador."
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Su cuenta ha sido desactivada. Motivo: {reason}"
+        )
+
     access_token = security.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+# ... (El resto de los endpoints hasta /admin/users/{user_id}/status no cambian) ...
 
 @app.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -103,10 +108,9 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
-# --- Endpoint para Consultar Documento ---
 @app.post("/consultar-documento")
 def consultar_documento(consulta: schemas.DocumentoConsulta, current_user: models.User = Depends(get_current_user)):
-    token = settings.API_TOKEN_CONSULTA
+    token = settings.API_TOKEN
     if not token:
         raise HTTPException(status_code=500, detail="API token not configured")
     
@@ -126,7 +130,6 @@ def consultar_documento(consulta: schemas.DocumentoConsulta, current_user: model
     except requests.exceptions.RequestException:
         raise HTTPException(status_code=503, detail="Error al consultar la API externa")
 
-# --- Endpoints de Cotizaciones ---
 @app.post("/cotizaciones/", response_model=schemas.Cotizacion)
 def create_new_cotizacion(cotizacion: schemas.CotizacionCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.create_cotizacion(db=db, cotizacion=cotizacion, user_id=current_user.id)
@@ -156,7 +159,6 @@ def delete_single_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), 
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
     return {"ok": True}
 
-# --- Endpoints para Perfil y PDF ---
 @app.put("/profile/", response_model=schemas.User)
 def update_profile(profile_data: schemas.ProfileUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     for key, value in profile_data.model_dump(exclude_unset=True).items():
@@ -168,7 +170,6 @@ def update_profile(profile_data: schemas.ProfileUpdate, db: Session = Depends(ge
 
 @app.post("/profile/logo/", response_model=schemas.User)
 def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # --- MEJORA DE SEGURIDAD: VALIDACIÓN DE ARCHIVO ---
     allowed_mime_types = ["image/jpeg", "image/png"]
     allowed_extensions = [".jpg", ".jpeg", ".png"]
     
@@ -229,9 +230,15 @@ def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admi
     user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return user
 
+# --- MODIFICACIÓN: AHORA RECIBE EL MOTIVO DE DESACTIVACIÓN ---
 @app.put("/admin/users/{user_id}/status", response_model=schemas.AdminUserView)
 def update_user_status_for_admin(user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    user = crud.update_user_status(db, user_id=user_id, is_active=status_update.is_active)
+    user = crud.update_user_status(
+        db, 
+        user_id=user_id, 
+        is_active=status_update.is_active,
+        deactivation_reason=status_update.deactivation_reason
+    )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.is_admin = (user.email == settings.ADMIN_EMAIL)

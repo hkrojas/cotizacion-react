@@ -1,7 +1,7 @@
 # backend/models.py
-# MODIFICADO PARA AÑADIR ELIMINACIÓN EN CASCADA
+# MODIFICADO PARA AÑADIR MOTIVO DE DESACTIVACIÓN
 
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -13,6 +13,9 @@ class User(Base):
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+
+    # --- NUEVO CAMPO ---
+    deactivation_reason = Column(Text, nullable=True) # Para guardar el motivo de la desactivación
 
     # Perfil del negocio
     business_name = Column(String, nullable=True)
@@ -26,8 +29,6 @@ class User(Base):
     pdf_note_2 = Column(String, default="LOS PRECIOS NO INCLUYEN ENVIOS")
     bank_accounts = Column(JSON, nullable=True)
 
-    # --- MODIFICACIÓN: AÑADIMOS ELIMINACIÓN EN CASCADA ---
-    # Si se elimina un usuario, todas sus cotizaciones también se eliminarán.
     cotizaciones = relationship("Cotizacion", back_populates="owner", cascade="all, delete-orphan")
 
 class Cotizacion(Base):
