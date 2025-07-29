@@ -1,5 +1,5 @@
 # backend/models.py
-# MODIFICADO PARA AÑADIR MOTIVO DE DESACTIVACIÓN
+# MODIFICADO PARA AÑADIR FECHA DE CREACIÓN AL USUARIO
 
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
@@ -13,9 +13,10 @@ class User(Base):
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    deactivation_reason = Column(Text, nullable=True)
 
     # --- NUEVO CAMPO ---
-    deactivation_reason = Column(Text, nullable=True) # Para guardar el motivo de la desactivación
+    creation_date = Column(DateTime(timezone=True), server_default=func.now())
 
     # Perfil del negocio
     business_name = Column(String, nullable=True)

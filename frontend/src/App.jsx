@@ -8,9 +8,9 @@ import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
 
-// --- NUEVOS IMPORTS PARA ADMIN ---
+// --- IMPORTS MODIFICADOS PARA ADMIN ---
 import AdminProtectedRoute from './components/AdminProtectedRoute';
-import AdminPage from './pages/AdminPage';
+import AdminPage from './pages/AdminPage'; // AdminPage ahora es el layout con rutas anidadas
 
 function App() {
   const { loading } = useContext(AuthContext);
@@ -40,9 +40,9 @@ function App() {
           </ProtectedRoute>
         } 
       />
-      {/* --- NUEVA RUTA DE ADMIN --- */}
+      {/* --- RUTA DE ADMIN MODIFICADA PARA ACEPTAR SUB-RUTAS --- */}
       <Route 
-        path="/admin"
+        path="/admin/*" // El '/*' es clave para las rutas anidadas
         element={
           <AdminProtectedRoute>
             <AdminPage />

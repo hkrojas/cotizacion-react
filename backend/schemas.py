@@ -1,5 +1,5 @@
 # backend/schemas.py
-# MODIFICADO PARA SOLUCIONAR ERROR DE MEMORIA (OOM)
+# MODIFICADO PARA AÑADIR NUEVOS ESQUEMAS Y CAMPOS PARA EL ADMIN
 
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import List, Optional
@@ -17,7 +17,7 @@ class Producto(ProductoBase):
     cotizacion_id: int
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquemas de Cotización (MODIFICADOS) ---
+# --- Esquemas de Cotización (sin cambios) ---
 class CotizacionBase(BaseModel):
     nombre_cliente: str = Field(..., min_length=1)
     direccion_cliente: str
@@ -26,20 +26,16 @@ class CotizacionBase(BaseModel):
     moneda: str
     monto_total: float
 
-# NUEVO ESQUEMA: Una versión ligera de la cotización para usar en listas.
-# No incluye la lista de productos para evitar sobrecarga de memoria.
 class CotizacionInList(CotizacionBase):
     id: int
     owner_id: int
     numero_cotizacion: str
     fecha_creacion: datetime
-    # El campo 'productos' se omite a propósito.
     model_config = ConfigDict(from_attributes=True)
 
 class CotizacionCreate(CotizacionBase):
     productos: List[ProductoCreate] = Field(..., min_length=1)
 
-# Este es el esquema completo, para ver UNA SOLA cotización con todos sus detalles.
 class Cotizacion(CotizacionBase):
     id: int
     owner_id: int
@@ -74,11 +70,11 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
-# Esquema completo del usuario, usado para el perfil del propio usuario (/users/me)
 class User(UserBase):
     id: int
     is_active: bool
     is_admin: bool
+    creation_date: datetime # <-- CAMPO AÑADIDO
     deactivation_reason: Optional[str] = None
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -90,16 +86,25 @@ class User(UserBase):
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
-    # CORRECCIÓN: Usamos el esquema ligero para la lista de cotizaciones del perfil.
     cotizaciones: List[CotizacionInList] = []
     model_config = ConfigDict(from_attributes=True)
 
 # --- Esquemas de Admin ---
+# --- NUEVO ESQUEMA PARA ESTADÍSTICAS ---
+class AdminDashboardStats(BaseModel):
+    total_users: int
+    active_users: int
+    total_cotizaciones: int
+    new_users_last_30_days: int
+
+# --- ESQUEMA MODIFICADO PARA LA VISTA DE USUARIOS ---
 class AdminUserView(BaseModel):
     id: int
     email: str
     is_active: bool
     is_admin: bool
+    creation_date: datetime
+    cotizaciones_count: int
     deactivation_reason: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -107,11 +112,11 @@ class UserStatusUpdate(BaseModel):
     is_active: bool
     deactivation_reason: Optional[str] = None
 
-# Este esquema ya estaba correcto, no carga cotizaciones.
 class AdminUserDetailView(UserBase):
     id: int
     is_active: bool
     is_admin: bool
+    creation_date: datetime
     deactivation_reason: Optional[str] = None
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -124,7 +129,6 @@ class AdminUserDetailView(UserBase):
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
     model_config = ConfigDict(from_attributes=True)
-
 
 # --- Esquemas de Token y DocumentoConsulta (sin cambios) ---
 class Token(BaseModel):
