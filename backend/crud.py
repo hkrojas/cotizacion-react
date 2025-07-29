@@ -6,7 +6,13 @@ import models, schemas, security
 
 # --- Funciones de Usuario ---
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+    # CORRECCIÓN CLAVE:
+    # Añadimos noload('cotizaciones') para evitar que SQLAlchemy cargue
+    # la lista completa de cotizaciones al obtener un usuario.
+    # Esto previene el error de "Out of Memory" al iniciar sesión o refrescar el perfil.
+    return db.query(models.User)\
+        .options(noload(models.User.cotizaciones))\
+        .filter(models.User.email == email).first()
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.pwd_context.hash(user.password)
@@ -54,7 +60,6 @@ def get_cotizaciones_by_owner(db: Session, owner_id: int):
     # CORRECCIÓN CLAVE:
     # Usamos options(noload(...)) para decirle a SQLAlchemy explícitamente
     # que NO cargue la relación 'productos' al hacer esta consulta.
-    # Esto evita la carga masiva de datos y soluciona el problema de memoria.
     return db.query(models.Cotizacion)\
         .options(noload(models.Cotizacion.productos))\
         .filter(models.Cotizacion.owner_id == owner_id)\
@@ -90,7 +95,6 @@ def delete_cotizacion(db: Session, cotizacion_id: int, owner_id: int):
 def get_all_users(db: Session):
     return db.query(models.User).all()
 
-# NUEVA FUNCIÓN: Obtiene un usuario por ID sin cargar sus cotizaciones.
 def get_user_by_id_for_admin(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
@@ -99,10 +103,8 @@ def update_user_status(db: Session, user_id: int, is_active: bool, deactivation_
     if db_user:
         db_user.is_active = is_active
         if not is_active:
-            # Si se está desactivando, guardamos el motivo
             db_user.deactivation_reason = deactivation_reason
         else:
-            # Si se está reactivando, limpiamos el motivo
             db_user.deactivation_reason = None
         db.commit()
         db.refresh(db_user)
