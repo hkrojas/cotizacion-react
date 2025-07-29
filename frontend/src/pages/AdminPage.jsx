@@ -13,13 +13,16 @@ import { API_URL } from '../config';
 // Componente para mostrar los detalles completos de un usuario en un modal
 const UserDetailsModal = ({ userId, onClose, token }) => {
     const [userData, setUserData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [loadingPdfId, setLoadingPdfId] = useState(null); // Estado para saber qué PDF se está cargando
+    const [cotizaciones, setCotizaciones] = useState([]); // Estado separado para cotizaciones
+    const [loadingUser, setLoadingUser] = useState(true); // Carga para datos del usuario
+    const [loadingCots, setLoadingCots] = useState(true); // Carga para cotizaciones
+    const [loadingPdfId, setLoadingPdfId] = useState(null);
     const { addToast } = useContext(ToastContext);
 
     useEffect(() => {
+        // Primera petición: Cargar solo los datos del usuario
         const fetchUserDetails = async () => {
-            setLoading(true);
+            setLoadingUser(true);
             try {
                 const response = await fetch(`${API_URL}/admin/users/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -31,14 +34,33 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
                 addToast(err.message, 'error');
                 onClose();
             } finally {
-                setLoading(false);
+                setLoadingUser(false);
             }
         };
+
+        // Segunda petición: Cargar las cotizaciones del usuario
+        const fetchUserCotizaciones = async () => {
+            setLoadingCots(true);
+            try {
+                const response = await fetch(`${API_URL}/admin/users/${userId}/cotizaciones`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('No se pudieron cargar las cotizaciones del usuario.');
+                const data = await response.json();
+                setCotizaciones(data);
+            } catch (err) {
+                addToast(err.message, 'error');
+            } finally {
+                setLoadingCots(false);
+            }
+        };
+
         fetchUserDetails();
+        fetchUserCotizaciones();
     }, [userId, token, onClose, addToast]);
 
     const handleDownloadPdf = async (cot) => {
-        setLoadingPdfId(cot.id); // Inicia la carga para este PDF
+        setLoadingPdfId(cot.id);
         try {
             const response = await fetch(`${API_URL}/admin/cotizaciones/${cot.id}/pdf`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -57,7 +79,7 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
         } catch (err) {
             addToast(err.message, 'error');
         } finally {
-            setLoadingPdfId(null); // Finaliza la carga
+            setLoadingPdfId(null);
         }
     };
 
@@ -70,7 +92,7 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
                     <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Detalles del Usuario</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">&times;</button>
                 </div>
-                {loading ? (
+                {loadingUser ? (
                     <LoadingSpinner message="Cargando detalles..." />
                 ) : userData ? (
                     <div className="mt-4 space-y-6">
@@ -100,10 +122,12 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
                             )}
                         </div>
                         <div>
-                            <h4 className="font-semibold text-lg mt-6 border-t pt-4 dark:border-gray-700">Cotizaciones ({userData.cotizaciones.length})</h4>
-                            {userData.cotizaciones.length > 0 ? (
+                            <h4 className="font-semibold text-lg mt-6 border-t pt-4 dark:border-gray-700">Cotizaciones ({cotizaciones.length})</h4>
+                            {loadingCots ? (
+                                <LoadingSpinner message="Cargando cotizaciones..." />
+                            ) : cotizaciones.length > 0 ? (
                                 <ul className="divide-y dark:divide-gray-700">
-                                    {userData.cotizaciones.map(cot => (
+                                    {cotizaciones.map(cot => (
                                         <li key={cot.id} className="py-2 flex justify-between items-center">
                                             <div>
                                                 <span>N° {cot.numero_cotizacion} - {cot.nombre_cliente}</span>
@@ -141,7 +165,7 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
 };
 
 
-const AdminPage = () => {
+const AdminPage = ({ children }) => {
     const { token } = useContext(AuthContext);
     const { addToast } = useContext(ToastContext);
     const [users, setUsers] = useState([]);

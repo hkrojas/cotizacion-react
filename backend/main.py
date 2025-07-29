@@ -1,5 +1,5 @@
 # backend/main.py
-# MODIFICADO PARA MANEJAR MOTIVO DE DESACTIVACIÓN
+# MODIFICADO PARA SOLUCIONAR ERROR DE MEMORIA (OOM)
 
 import requests
 import os
@@ -73,7 +73,7 @@ def get_current_admin_user(current_user: models.User = Depends(get_current_user)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
     return current_user
 
-# --- Endpoints de Autenticación ---
+# --- Endpoints de Autenticación y Usuario ---
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = crud.authenticate_user(db, email=form_data.username, password=form_data.password)
@@ -83,19 +83,14 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
             detail="Email o contraseña incorrectos.",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    
-    # --- NUEVA VERIFICACIÓN: COMPROBAR SI EL USUARIO ESTÁ ACTIVO ---
     if not user.is_active:
         reason = user.deactivation_reason or "Contacte al administrador."
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Su cuenta ha sido desactivada. Motivo: {reason}"
         )
-
     access_token = security.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
-
-# ... (El resto de los endpoints hasta /admin/users/{user_id}/status no cambian) ...
 
 @app.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -213,7 +208,7 @@ def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), curren
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
 
-# --- Endpoints de Administrador ---
+# --- Endpoints de Administrador (MODIFICADOS) ---
 @app.get("/admin/users/", response_model=List[schemas.AdminUserView])
 def get_users_for_admin(db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     users = crud.get_all_users(db)
@@ -221,16 +216,24 @@ def get_users_for_admin(db: Session = Depends(get_db), admin_user: models.User =
         user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return users
 
+# CORRECCIÓN: Este endpoint ahora solo devuelve los datos del perfil, sin las cotizaciones.
 @app.get("/admin/users/{user_id}", response_model=schemas.AdminUserDetailView)
 def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    user = crud.get_user_by_id_for_admin(db, user_id=user_id) # Usamos una nueva función de crud
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return user
 
-# --- MODIFICACIÓN: AHORA RECIBE EL MOTIVO DE DESACTIVACIÓN ---
+# NUEVO ENDPOINT: Para cargar las cotizaciones de un usuario de forma separada.
+@app.get("/admin/users/{user_id}/cotizaciones", response_model=List[schemas.Cotizacion])
+def get_user_cotizaciones_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    cotizaciones = crud.get_cotizaciones_by_owner(db, owner_id=user_id)
+    if not cotizaciones:
+        return []
+    return cotizaciones
+
 @app.put("/admin/users/{user_id}/status", response_model=schemas.AdminUserView)
 def update_user_status_for_admin(user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     user = crud.update_user_status(

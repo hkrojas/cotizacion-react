@@ -1,5 +1,5 @@
 # backend/crud.py
-# MODIFICADO PARA MANEJAR MOTIVO DE DESACTIVACIÓN
+# MODIFICADO PARA SOLUCIONAR ERROR DE MEMORIA (OOM)
 
 from sqlalchemy.orm import Session
 import models, schemas, security
@@ -24,7 +24,7 @@ def authenticate_user(db: Session, email: str, password: str):
         return None # Cambiado a None
     return user
 
-# --- Funciones de Cotización (sin cambios) ---
+# --- Funciones de Cotización ---
 def get_next_cotizacion_number(db: Session):
     last_cotizacion = db.query(models.Cotizacion).order_by(models.Cotizacion.id.desc()).first()
     if not last_cotizacion or not last_cotizacion.numero_cotizacion:
@@ -82,7 +82,10 @@ def delete_cotizacion(db: Session, cotizacion_id: int, owner_id: int):
 def get_all_users(db: Session):
     return db.query(models.User).all()
 
-# --- MODIFICACIÓN: AHORA ACEPTA EL MOTIVO DE DESACTIVACIÓN ---
+# NUEVA FUNCIÓN: Obtiene un usuario por ID sin cargar sus cotizaciones.
+def get_user_by_id_for_admin(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
 def update_user_status(db: Session, user_id: int, is_active: bool, deactivation_reason: str = None):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:
