@@ -1,5 +1,5 @@
 // src/pages/AdminUsersPage.jsx
-// NUEVA PÁGINA: Contiene la lógica y la tabla mejorada para gestionar usuarios.
+// ARCHIVO CORREGIDO: Se restaura la funcionalidad del modal de detalles y se completan las funciones.
 
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
@@ -25,8 +25,78 @@ const DeactivateIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="
 const ActivateIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DeleteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
 
-// El modal de detalles se mantiene igual, se puede mover a su propio archivo si se desea.
-const UserDetailsModal = ({ userId, onClose, token }) => { /* ... (código del modal sin cambios) ... */ };
+// --- CÓDIGO DEL MODAL DE DETALLES RESTAURADO ---
+const UserDetailsModal = ({ userId, onClose, token }) => {
+    const [userData, setUserData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const { addToast } = useContext(ToastContext);
+
+    useEffect(() => {
+        const fetchUserDetails = async () => {
+            setLoading(true);
+            try {
+                const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('No se pudieron cargar los detalles del usuario.');
+                const data = await response.json();
+                setUserData(data);
+            } catch (err) {
+                addToast(err.message, 'error');
+                onClose();
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (userId) {
+            fetchUserDetails();
+        }
+    }, [userId, token, addToast, onClose]);
+
+    return (
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+            onClick={onClose}
+        >
+            <div 
+                className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-lg transform transition-all animate-slide-in-up"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {loading ? <LoadingSpinner /> : userData && (
+                    <>
+                        <div className="flex justify-between items-center border-b dark:border-gray-700 pb-3 mb-4">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                                Detalles de Usuario
+                            </h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="space-y-3 text-sm">
+                            <p><strong>Email:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.email}</span></p>
+                            <p><strong>Fecha de Registro:</strong> <span className="text-gray-600 dark:text-gray-300">{new Date(userData.creation_date).toLocaleDateString('es-ES')}</span></p>
+                            <p><strong>Estado:</strong> <span className={`font-semibold ${userData.is_active ? 'text-green-600' : 'text-red-600'}`}>{userData.is_active ? 'Activo' : 'Inactivo'}</span></p>
+                            {!userData.is_active && <p><strong>Motivo Inactividad:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.deactivation_reason}</span></p>}
+                            <p><strong>Nombre Negocio:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.business_name || 'No especificado'}</span></p>
+                            <p><strong>RUC:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.business_ruc || 'No especificado'}</span></p>
+                        </div>
+                        <div className="mt-6 text-right">
+                             <button
+                                type="button"
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
+                                onClick={onClose}
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+
 
 const AdminUsersPage = () => {
     const { token } = useContext(AuthContext);
@@ -54,9 +124,55 @@ const AdminUsersPage = () => {
 
     useEffect(() => { fetchUsers(); }, [token]);
 
-    const handleToggleActive = async (user) => { /* ... (código sin cambios) ... */ };
-    const handleConfirmDeactivation = async (reason) => { /* ... (código sin cambios) ... */ };
-    const confirmDelete = async () => { /* ... (código sin cambios) ... */ };
+    const handleToggleActive = async (user) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${user.id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ is_active: true, deactivation_reason: null })
+            });
+            if (!response.ok) throw new Error('No se pudo activar al usuario.');
+            addToast(`Usuario ${user.email} activado.`, 'success');
+            fetchUsers();
+        } catch (err) {
+            addToast(err.message, 'error');
+        }
+    };
+    
+    const handleConfirmDeactivation = async (reason) => {
+        if (!deactivatingUser || !reason) return;
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${deactivatingUser.id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ is_active: false, deactivation_reason: reason })
+            });
+            if (!response.ok) throw new Error('No se pudo desactivar al usuario.');
+            addToast(`Usuario ${deactivatingUser.email} desactivado.`, 'success');
+            fetchUsers();
+        } catch (err) {
+            addToast(err.message, 'error');
+        } finally {
+            setDeactivatingUser(null);
+        }
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingUser) return;
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${deletingUser.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Error al eliminar el usuario.');
+            addToast(`Usuario ${deletingUser.email} eliminado con éxito.`, 'success');
+            fetchUsers();
+        } catch (err) {
+            addToast(err.message, 'error');
+        } finally {
+            setDeletingUser(null);
+        }
+    };
 
     const formatDate = (dateString) => new Date(dateString).toLocaleDateString('es-ES');
 
