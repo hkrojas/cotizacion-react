@@ -1,18 +1,19 @@
+// src/pages/DashboardPage.jsx
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import ClientForm from '../components/ClientForm';
 import ProductsTable from '../components/ProductsTable';
-import ThemeToggle from '../components/ThemeToggle';
 import CotizacionesList from '../components/CotizacionesList';
-import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
-import { parseApiError } from '../utils/apiUtils'; // 2. Importamos la función de utilidad
-
-// 3. Eliminamos la función parseApiError que estaba duplicada aquí.
+import PageHeader from '../components/PageHeader'; // Importar
+import Card from '../components/Card'; // Importar
+import Button from '../components/Button'; // Importar
+import { API_URL } from '../config';
+import { parseApiError } from '../utils/apiUtils';
 
 const DashboardPage = () => {
-    const { user, logout, token } = useContext(AuthContext);
+    const { user, logout } = useContext(AuthContext);
     const { addToast } = useContext(ToastContext);
     const [activeTab, setActiveTab] = useState('crear');
     
@@ -24,6 +25,7 @@ const DashboardPage = () => {
         { descripcion: '', unidades: 1, precio_unitario: 0, total: 0 },
     ]);
     const [loadingConsulta, setLoadingConsulta] = useState(false);
+    const [loadingSubmit, setLoadingSubmit] = useState(false); // Estado de carga para guardar
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const handleClientChange = (e) => {
@@ -38,10 +40,9 @@ const DashboardPage = () => {
         }
         setLoadingConsulta(true);
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/consultar-documento`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
                 body: JSON.stringify({
                     tipo_documento: clientData.tipo_documento,
                     numero_documento: clientData.nro_documento
@@ -87,19 +88,18 @@ const DashboardPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoadingSubmit(true);
         const monto_total = products.reduce((sum, p) => sum + p.total, 0);
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
         
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/cotizaciones/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}`},
                 body: JSON.stringify(cotizacionData)
             });
             if (!response.ok) { 
                 const errData = await response.json();
-                // Usamos la función de utilidad importada
                 const errorMessage = parseApiError(errData);
                 throw new Error(errorMessage);
             }
@@ -111,6 +111,8 @@ const DashboardPage = () => {
             setActiveTab('ver');
         } catch (error) {
             addToast(error.message, 'error');
+        } finally {
+            setLoadingSubmit(false);
         }
     };
 
@@ -118,45 +120,32 @@ const DashboardPage = () => {
     const activeTabStyle = "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400";
     const inactiveTabStyle = "border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
 
+    const headerIcon = (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+    );
+
     return (
         <div className="bg-gray-100 dark:bg-dark-bg-body min-h-screen transition-colors duration-300">
-            <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md sticky top-0 z-10">
-                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-3">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                                Dashboard
-                            </h1>
-                        </div>
-                        <div className="flex items-center space-x-6">
-                             <ThemeToggle />
-                             {user && (
-                                <div className="flex items-center space-x-4">
-                                    <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300">Bienvenido, <strong>{user.email}</strong></span>
-                                    {/* --- ENLACE CONDICIONAL AL PANEL DE ADMIN --- */}
-                                    {user.is_admin && (
-                                        <Link to="/admin" className="font-semibold text-purple-600 dark:text-purple-400 hover:underline">
-                                            Admin
-                                        </Link>
-                                    )}
-                                    <Link to="/profile" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                                        Mi Perfil
-                                    </Link>
-                                    <button 
-                                        onClick={logout} 
-                                        className="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-all duration-300 shadow-lg"
-                                    >
-                                        Cerrar Sesión
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+            <PageHeader title="Dashboard" icon={headerIcon}>
+                {user && (
+                    <div className="flex items-center space-x-4">
+                        <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300">Bienvenido, <strong>{user.email}</strong></span>
+                        {user.is_admin && (
+                            <Link to="/admin" className="font-semibold text-purple-600 dark:text-purple-400 hover:underline">
+                                Admin
+                            </Link>
+                        )}
+                        <Link to="/profile" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                            Mi Perfil
+                        </Link>
+                        <Button onClick={logout} variant="danger">
+                            Cerrar Sesión
+                        </Button>
                     </div>
-                </div>
-            </header>
+                )}
+            </PageHeader>
             
             <main className="p-4 sm:p-8">
                 <div className="w-full max-w-6xl mx-auto">
@@ -168,25 +157,22 @@ const DashboardPage = () => {
                             Ver Cotizaciones
                         </button>
                     </div>
-                    <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-b-lg shadow-xl">
+                    <Card className="rounded-t-none">
                         {activeTab === 'crear' && (
                             <form onSubmit={handleSubmit}>
                                 <ClientForm clientData={clientData} handleClientChange={handleClientChange} handleConsultar={handleConsultarDatos} loadingConsulta={loadingConsulta} />
                                 <ProductsTable products={products} handleProductChange={handleProductChange} addProduct={addProduct} removeProduct={removeProduct} />
                                 <div className="mt-8 text-right">
-                                    <button 
-                                        type="submit" 
-                                        className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-md transition-all duration-300 text-lg shadow-lg"
-                                    >
+                                    <Button type="submit" variant="primary" loading={loadingSubmit} className="text-lg px-8 py-3">
                                         Guardar Cotización
-                                    </button>
+                                    </Button>
                                 </div>
                             </form>
                         )}
                         {activeTab === 'ver' && (
                             <CotizacionesList refreshTrigger={refreshTrigger} />
                         )}
-                    </div>
+                    </Card>
                 </div>
             </main>
         </div>

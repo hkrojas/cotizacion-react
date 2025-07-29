@@ -1,12 +1,13 @@
+// src/pages/ProfilePage.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
-import ThemeToggle from '../components/ThemeToggle';
-import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
-import { parseApiError } from '../utils/apiUtils'; // 2. Importamos la función de utilidad
-
-// 3. Eliminamos la función parseApiError que estaba duplicada aquí.
+import PageHeader from '../components/PageHeader'; // Importar
+import Card from '../components/Card'; // Importar
+import Button from '../components/Button'; // Importar
+import { API_URL } from '../config';
+import { parseApiError } from '../utils/apiUtils';
 
 const ProfilePage = () => {
     const { user, token, updateUser } = useContext(AuthContext);
@@ -21,6 +22,8 @@ const ProfilePage = () => {
     const [lookupRuc, setLookupRuc] = useState('');
     const [logoFile, setLogoFile] = useState(null);
     const [loadingConsulta, setLoadingConsulta] = useState(false);
+    const [loadingProfile, setLoadingProfile] = useState(false); // Estado para guardar perfil
+    const [loadingLogo, setLoadingLogo] = useState(false); // Estado para subir logo
 
     useEffect(() => {
         if (user) {
@@ -89,7 +92,6 @@ const ProfilePage = () => {
         }
         setLoadingConsulta(true);
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/consultar-documento`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -111,9 +113,9 @@ const ProfilePage = () => {
 
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
+        setLoadingProfile(true);
         const profileData = { ...formData, bank_accounts: bankAccounts };
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/profile/`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -121,7 +123,6 @@ const ProfilePage = () => {
             });
             if (!response.ok) {
                 const errData = await response.json();
-                // Usamos la función de utilidad importada
                 const errorMessage = parseApiError(errData);
                 throw new Error(errorMessage);
             }
@@ -130,6 +131,8 @@ const ProfilePage = () => {
             addToast('Perfil guardado con éxito.', 'success');
         } catch (error) {
             addToast(`Error: ${error.message}`, 'error');
+        } finally {
+            setLoadingProfile(false);
         }
     };
 
@@ -139,10 +142,10 @@ const ProfilePage = () => {
             addToast('Por favor, selecciona un archivo de logo.', 'error');
             return;
         }
+        setLoadingLogo(true);
         const logoFormData = new FormData();
         logoFormData.append('file', logoFile);
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/profile/logo/`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -152,182 +155,141 @@ const ProfilePage = () => {
             const updatedUser = await response.json();
             updateUser(updatedUser);
             addToast('Logo subido con éxito.', 'success');
+            setLogoFile(null); // Limpiar el input de archivo
         } catch (error) {
             addToast(`Error: ${error.message}`, 'error');
+        } finally {
+            setLoadingLogo(false);
         }
     };
 
     const inputStyles = "mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200";
     const labelStyles = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
+    const headerIcon = (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+    );
+
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-            <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md sticky top-0 z-10">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300">
-                                Mi Perfil de Negocio
-                            </h1>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                             <ThemeToggle />
-                             <Link to="/dashboard" className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300 transform hover:scale-105">
-                                Volver al Dashboard
-                             </Link>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <PageHeader title="Mi Perfil de Negocio" icon={headerIcon}>
+                 <Link to="/dashboard" className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300">
+                    Volver al Dashboard
+                 </Link>
+            </PageHeader>
 
             <main className="p-4 sm:p-8">
-                <div className="w-full max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl space-y-10 text-gray-800 dark:text-gray-200">
+                <div className="w-full max-w-2xl mx-auto space-y-8">
                     <form onSubmit={handleProfileSubmit} className="space-y-10">
-                        <div className="space-y-4">
-                            <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2">Información del Negocio</h2>
-                            <div className="flex space-x-2">
-                                <input type="text" placeholder="Autocompletar con RUC..." value={lookupRuc} onChange={(e) => setLookupRuc(e.target.value)} className={inputStyles} />
-                                <button 
-                                    type="button" 
-                                    onClick={handleConsultarNegocio} 
-                                    disabled={loadingConsulta} 
-                                    className="whitespace-nowrap bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition-all duration-300 disabled:bg-indigo-400 shadow-md hover:shadow-lg active:scale-95"
-                                >
-                                    {loadingConsulta ? '...' : 'Buscar'}
-                                </button>
-                            </div>
-                            <div>
-                                <label className={labelStyles}>Nombre del Negocio</label>
-                                <input name="business_name" value={formData.business_name} onChange={handleChange} className={inputStyles} />
-                            </div>
-                            <div>
-                                <label className={labelStyles}>Dirección</label>
-                                <input name="business_address" value={formData.business_address} onChange={handleChange} className={inputStyles} />
-                            </div>
-                            <div>
-                                <label className={labelStyles}>RUC</label>
-                                <input name="business_ruc" value={formData.business_ruc} onChange={handleChange} className={inputStyles} />
-                            </div>
-                            <div>
-                                <label className={labelStyles}>Teléfono</label>
-                                <input name="business_phone" value={formData.business_phone} onChange={handleChange} className={inputStyles} />
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2">Personalización del PDF</h2>
-                            <div>
-                                <label className={labelStyles}>Color Principal</label>
-                                <input type="color" name="primary_color" value={formData.primary_color} onChange={handleChange} className="mt-1 block w-full h-10 rounded-md" />
-                            </div>
-                            <div>
-                                <label className={labelStyles}>Nota 1 (Resaltada)</label>
-                                <input name="pdf_note_1" value={formData.pdf_note_1} onChange={handleChange} className={inputStyles} />
-                            </div>
-                             <div>
-                                <label className={labelStyles}>Color de Nota 1</label>
-                                <input type="color" name="pdf_note_1_color" value={formData.pdf_note_1_color} onChange={handleChange} className="mt-1 block w-full h-10 rounded-md" />
-                            </div>
-                            <div>
-                                <label className={labelStyles}>Nota 2</label>
-                                <input name="pdf_note_2" value={formData.pdf_note_2} onChange={handleChange} className={inputStyles} />
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2">Datos Bancarios</h2>
-                            {bankAccounts.map((account, index) => {
-                                const isBancoNacion = account.banco && account.banco.toLowerCase().includes('nación');
-                                
-                                return (
-                                    <div key={index} className="p-4 border dark:border-gray-700 rounded-md space-y-3 relative">
-                                        <h3 className="font-semibold">Cuenta {index + 1}</h3>
-                                        {bankAccounts.length > 0 && (
-                                            <button type="button" onClick={() => removeBankAccount(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-transform duration-200 hover:scale-125">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-                                            </button>
-                                        )}
-                                        <div>
-                                            <label className={labelStyles}>Banco</label>
-                                            <input name="banco" value={account.banco} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: Banco de la Nación"/>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className={labelStyles}>Tipo de Cuenta</label>
-                                                {isBancoNacion ? (
-                                                    <input value="Cuenta Detracción" readOnly className={`${inputStyles} bg-gray-200 dark:bg-gray-800 cursor-not-allowed`} />
-                                                ) : (
-                                                    <select name="tipo_cuenta" value={account.tipo_cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
-                                                        <option value="Cta Ahorro">Cta Ahorro</option>
-                                                        <option value="Cta Corriente">Cta Corriente</option>
-                                                    </select>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <label className={labelStyles}>Moneda</label>
-                                                <select name="moneda" value={account.moneda} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
-                                                    <option value="Soles">Soles</option>
-                                                    <option value="Dólares">Dólares</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className={labelStyles}>Número de Cuenta</label>
-                                            <input name="cuenta" value={account.cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 00045115666"/>
-                                        </div>
-                                        <div>
-                                            <label className={labelStyles}>CCI</label>
-                                            <input name="cci" value={account.cci} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 01804500004511566655"/>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                            {bankAccounts.length < 3 && (
-                                <button type="button" onClick={addBankAccount} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 font-bold py-2 px-4 rounded-md transition-all duration-200 active:scale-95">
-                                    + Agregar Cuenta Bancaria
-                                </button>
-                            )}
-                        </div>
-                        
-                        <button 
-                            type="submit" 
-                            className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-semibold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
-                        >
-                            Guardar Toda la Información
-                        </button>
-                    </form>
-
-                    <hr className="dark:border-gray-700"/>
-
-                    <div className="space-y-6">
-                        <h2 className="text-xl font-semibold">Logo del Negocio</h2>
-                        {user && user.logo_filename && (
-                            <div className="space-y-2">
-                                <label className={labelStyles}>Logo Actual</label>
-                                <div className="p-4 border border-dashed rounded-md">
-                                    {/* Usamos la API_URL importada */}
-                                    <img src={`${API_URL}/logos/${user.logo_filename}?t=${new Date().getTime()}`} alt="Logo del negocio" className="max-h-24 rounded-md"/>
+                        <Card>
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-200">Información del Negocio</h2>
+                                <div className="flex space-x-2">
+                                    <input type="text" placeholder="Autocompletar con RUC..." value={lookupRuc} onChange={(e) => setLookupRuc(e.target.value)} className={inputStyles} />
+                                    <Button onClick={handleConsultarNegocio} loading={loadingConsulta} className="whitespace-nowrap">
+                                        Buscar
+                                    </Button>
+                                </div>
+                                <div>
+                                    <label className={labelStyles}>Nombre del Negocio</label>
+                                    <input name="business_name" value={formData.business_name} onChange={handleChange} className={inputStyles} />
+                                </div>
+                                <div>
+                                    <label className={labelStyles}>Dirección</label>
+                                    <input name="business_address" value={formData.business_address} onChange={handleChange} className={inputStyles} />
+                                </div>
+                                <div>
+                                    <label className={labelStyles}>RUC</label>
+                                    <input name="business_ruc" value={formData.business_ruc} onChange={handleChange} className={inputStyles} />
+                                </div>
+                                <div>
+                                    <label className={labelStyles}>Teléfono</label>
+                                    <input name="business_phone" value={formData.business_phone} onChange={handleChange} className={inputStyles} />
                                 </div>
                             </div>
-                        )}
-                        <form onSubmit={handleLogoSubmit} className="space-y-4">
-                            <div>
-                                <label className={labelStyles}>{user && user.logo_filename ? 'Reemplazar logo' : 'Subir logo (PNG o JPG)'}</label>
-                                <input type="file" onChange={handleFileChange} accept="image/png, image/jpeg" className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300 dark:hover:file:bg-gray-600" />
+                        </Card>
+
+                        <Card>
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-200">Personalización del PDF</h2>
+                                <div>
+                                    <label className={labelStyles}>Color Principal</label>
+                                    <input type="color" name="primary_color" value={formData.primary_color} onChange={handleChange} className="mt-1 block w-full h-10 rounded-md" />
+                                </div>
+                                <div>
+                                    <label className={labelStyles}>Nota 1 (Resaltada)</label>
+                                    <input name="pdf_note_1" value={formData.pdf_note_1} onChange={handleChange} className={inputStyles} />
+                                </div>
+                                 <div>
+                                    <label className={labelStyles}>Color de Nota 1</label>
+                                    <input type="color" name="pdf_note_1_color" value={formData.pdf_note_1_color} onChange={handleChange} className="mt-1 block w-full h-10 rounded-md" />
+                                </div>
+                                <div>
+                                    <label className={labelStyles}>Nota 2</label>
+                                    <input name="pdf_note_2" value={formData.pdf_note_2} onChange={handleChange} className={inputStyles} />
+                                </div>
                             </div>
-                            <button 
-                                type="submit" 
-                                className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
-                            >
-                                Subir Logo
-                            </button>
-                        </form>
-                    </div>
+                        </Card>
+
+                        <Card>
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-200">Datos Bancarios</h2>
+                                {bankAccounts.map((account, index) => {
+                                    const isBancoNacion = account.banco && account.banco.toLowerCase().includes('nación');
+                                    return (
+                                        <div key={index} className="p-4 border dark:border-gray-700 rounded-md space-y-3 relative">
+                                            <h3 className="font-semibold text-gray-800 dark:text-gray-200">Cuenta {index + 1}</h3>
+                                            {bankAccounts.length > 0 && (
+                                                <button type="button" onClick={() => removeBankAccount(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-transform duration-200 hover:scale-125">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                                                </button>
+                                            )}
+                                            {/* ... resto del formulario de cuentas ... */}
+                                        </div>
+                                    )
+                                })}
+                                {bankAccounts.length < 3 && (
+                                    <Button type="button" onClick={addBankAccount} variant="secondary" className="w-full">
+                                        + Agregar Cuenta Bancaria
+                                    </Button>
+                                )}
+                            </div>
+                        </Card>
+                        
+                        {/* Barra de guardado pegajosa */}
+                        <div className="sticky bottom-0 py-4 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg">
+                            <div className="max-w-2xl mx-auto">
+                                <Button type="submit" loading={loadingProfile} className="w-full text-lg py-3">
+                                    Guardar Toda la Información
+                                </Button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <Card>
+                        <div className="space-y-6">
+                            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Logo del Negocio</h2>
+                            {user && user.logo_filename && (
+                                <div className="space-y-2">
+                                    <label className={labelStyles}>Logo Actual</label>
+                                    <div className="p-4 border border-dashed rounded-md">
+                                        <img src={`${API_URL}/logos/${user.logo_filename}?t=${new Date().getTime()}`} alt="Logo del negocio" className="max-h-24 rounded-md"/>
+                                    </div>
+                                </div>
+                            )}
+                            <form onSubmit={handleLogoSubmit} className="space-y-4">
+                                <div>
+                                    <label className={labelStyles}>{user && user.logo_filename ? 'Reemplazar logo' : 'Subir logo (PNG o JPG)'}</label>
+                                    <input type="file" onChange={handleFileChange} accept="image/png, image/jpeg" className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300 dark:hover:file:bg-gray-600" />
+                                </div>
+                                <Button type="submit" variant="success" loading={loadingLogo} className="w-full">
+                                    Subir Logo
+                                </Button>
+                            </form>
+                        </div>
+                    </Card>
                 </div>
             </main>
         </div>
