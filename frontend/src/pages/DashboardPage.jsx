@@ -5,15 +5,16 @@ import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import ClientForm from '../components/ClientForm';
 import ProductsTable from '../components/ProductsTable';
+import ThemeToggle from '../components/ThemeToggle';
 import CotizacionesList from '../components/CotizacionesList';
-import PageHeader from '../components/PageHeader'; // Importar
-import Card from '../components/Card'; // Importar
-import Button from '../components/Button'; // Importar
+import PageHeader from '../components/PageHeader';
+import Card from '../components/Card';
+import Button from '../components/Button';
 import { API_URL } from '../config';
 import { parseApiError } from '../utils/apiUtils';
 
 const DashboardPage = () => {
-    const { user, logout } = useContext(AuthContext);
+    const { user, logout, token } = useContext(AuthContext);
     const { addToast } = useContext(ToastContext);
     const [activeTab, setActiveTab] = useState('crear');
     
@@ -25,11 +26,15 @@ const DashboardPage = () => {
         { descripcion: '', unidades: 1, precio_unitario: 0, total: 0 },
     ]);
     const [loadingConsulta, setLoadingConsulta] = useState(false);
-    const [loadingSubmit, setLoadingSubmit] = useState(false); // Estado de carga para guardar
+    const [loadingSubmit, setLoadingSubmit] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const handleClientChange = (e) => {
-        const { name, value } = e.target;
+        let { name, value } = e.target;
+        // CORRECCIÓN: Convertir a mayúsculas para campos específicos
+        if (['nombre_cliente', 'direccion_cliente', 'nro_documento'].includes(name)) {
+            value = value.toUpperCase();
+        }
         setClientData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -42,7 +47,7 @@ const DashboardPage = () => {
         try {
             const response = await fetch(`${API_URL}/consultar-documento`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
                     tipo_documento: clientData.tipo_documento,
                     numero_documento: clientData.nro_documento
@@ -67,9 +72,15 @@ const DashboardPage = () => {
     };
 
     const handleProductChange = (index, e) => {
-        const { name, value } = e.target;
+        let { name, value } = e.target;
         const newProducts = [...products];
         const product = newProducts[index];
+
+        // CORRECCIÓN: Convertir a mayúsculas solo para la descripción
+        if (name === 'descripcion') {
+            value = value.toUpperCase();
+        }
+
         product[name] = value;
         const unidades = parseFloat(product.unidades) || 0;
         const precioUnitario = parseFloat(product.precio_unitario) || 0;
@@ -95,7 +106,7 @@ const DashboardPage = () => {
         try {
             const response = await fetch(`${API_URL}/cotizaciones/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}`},
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
                 body: JSON.stringify(cotizacionData)
             });
             if (!response.ok) { 

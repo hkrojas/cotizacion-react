@@ -1,3 +1,4 @@
+// src/components/ClientForm.jsx
 import React, { useState, useEffect, useRef } from 'react';
 
 // --- NUEVO COMPONENTE: CustomDropdown ---
@@ -41,7 +42,6 @@ const CustomDropdown = ({ label, options, selectedOption, onSelect }) => {
                 </svg>
             </button>
             
-            {/* Lista de opciones con animación */}
             <div className={`absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg transition-all duration-200 ease-out ${isOpen ? 'opacity-100 transform scale-100' : 'opacity-0 transform scale-95 pointer-events-none'}`}>
                 <ul className="py-1">
                     {options.map((option) => (
@@ -69,7 +69,6 @@ const ClientForm = ({ clientData, handleClientChange, handleConsultar, loadingCo
       <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2">1. Datos del Cliente</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* Usamos el nuevo componente CustomDropdown */}
         <CustomDropdown
             label="Tipo de Documento"
             options={['DNI', 'RUC']}
@@ -80,7 +79,8 @@ const ClientForm = ({ clientData, handleClientChange, handleConsultar, loadingCo
         <div>
           <label htmlFor="nro_documento" className={labelStyles}>Número de Documento</label>
           <div className="flex space-x-2">
-            <input type="text" id="nro_documento" name="nro_documento" value={clientData.nro_documento} onChange={handleClientChange} className={inputStyles} />
+            {/* Se añade la clase 'uppercase' para la transformación visual */}
+            <input type="text" id="nro_documento" name="nro_documento" value={clientData.nro_documento} onChange={handleClientChange} className={`${inputStyles} uppercase`} />
             <button type="button" onClick={handleConsultar} disabled={loadingConsulta} className="whitespace-nowrap bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 disabled:bg-blue-400">
               {loadingConsulta ? '...' : 'Buscar'}
             </button>
@@ -89,14 +89,15 @@ const ClientForm = ({ clientData, handleClientChange, handleConsultar, loadingCo
       </div>
       <div>
         <label htmlFor="nombre_cliente" className={labelStyles}>Nombre del Cliente</label>
-        <input type="text" id="nombre_cliente" name="nombre_cliente" value={clientData.nombre_cliente} onChange={handleClientChange} required className={inputStyles} />
+        {/* Se añade la clase 'uppercase' para la transformación visual */}
+        <input type="text" id="nombre_cliente" name="nombre_cliente" value={clientData.nombre_cliente} onChange={handleClientChange} required className={`${inputStyles} uppercase`} />
       </div>
       <div>
         <label htmlFor="direccion_cliente" className={labelStyles}>Dirección</label>
-        <input type="text" id="direccion_cliente" name="direccion_cliente" value={clientData.direccion_cliente} onChange={handleClientChange} required className={inputStyles} />
+        {/* Se añade la clase 'uppercase' para la transformación visual */}
+        <input type="text" id="direccion_cliente" name="direccion_cliente" value={clientData.direccion_cliente} onChange={handleClientChange} required className={`${inputStyles} uppercase`} />
       </div>
 
-      {/* Usamos el nuevo componente CustomDropdown también para la moneda */}
       <CustomDropdown
           label="Moneda"
           options={['SOLES', 'DOLARES']}

@@ -1,3 +1,4 @@
+// src/components/ProductsTable.jsx
 import React from 'react';
 
 const ProductsTable = ({ products, handleProductChange, addProduct, removeProduct }) => {
@@ -7,7 +8,6 @@ const ProductsTable = ({ products, handleProductChange, addProduct, removeProduc
     <div className="space-y-4 mt-8">
       <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2">2. Productos</h2>
       <div className="overflow-x-auto">
-        {/* --- TABLA MEJORADA --- */}
         <table className="min-w-full border-separate" style={{ borderSpacing: "0 0.5rem" }}>
           <thead>
             <tr>
@@ -21,7 +21,8 @@ const ProductsTable = ({ products, handleProductChange, addProduct, removeProduc
           <tbody>
             {products.map((product, index) => (
               <tr key={index}>
-                <td className="px-1"><input type="text" name="descripcion" value={product.descripcion} onChange={(e) => handleProductChange(index, e)} className={tableInputStyles} required /></td>
+                {/* Se añade la clase 'uppercase' para la transformación visual */}
+                <td className="px-1"><input type="text" name="descripcion" value={product.descripcion} onChange={(e) => handleProductChange(index, e)} className={`${tableInputStyles} uppercase`} required /></td>
                 <td className="px-1"><input type="number" name="unidades" value={product.unidades} onChange={(e) => handleProductChange(index, e)} className={tableInputStyles} /></td>
                 <td className="px-1"><input type="number" step="0.01" name="precio_unitario" value={product.precio_unitario} onChange={(e) => handleProductChange(index, e)} className={tableInputStyles} /></td>
                 <td className="px-1"><input type="text" name="total" value={product.total.toFixed(2)} readOnly className={`${tableInputStyles} bg-gray-200 dark:bg-gray-800 cursor-not-allowed`} /></td>

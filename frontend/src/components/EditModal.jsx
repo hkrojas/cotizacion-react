@@ -1,13 +1,12 @@
+// src/components/EditModal.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import ClientForm from './ClientForm';
 import ProductsTable from './ProductsTable';
 import LoadingSpinner from './LoadingSpinner';
-import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
-import { parseApiError } from '../utils/apiUtils'; // 2. Importamos la función de utilidad
-
-// 3. Eliminamos la función parseApiError que estaba duplicada aquí.
+import { API_URL } from '../config';
+import { parseApiError } from '../utils/apiUtils';
 
 const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
     const { token } = useContext(AuthContext);
@@ -21,7 +20,6 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
         const fetchCotizacionData = async () => {
             setLoading(true);
             try {
-                // Usamos la API_URL importada
                 const response = await fetch(`${API_URL}/cotizaciones/${cotizacionId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -37,7 +35,7 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
                 setProducts(data.productos.map(p => ({...p, total: p.unidades * p.precio_unitario})));
             } catch (err) {
                 addToast(err.message, 'error');
-                closeModal(); // Cierra el modal si hay un error al cargar
+                closeModal();
             } finally {
                 setLoading(false);
             }
@@ -46,14 +44,24 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
     }, [cotizacionId, token, addToast, closeModal]);
 
     const handleClientChange = (e) => {
-        const { name, value } = e.target;
+        let { name, value } = e.target;
+        // CORRECCIÓN: Convertir a mayúsculas para campos específicos
+        if (['nombre_cliente', 'direccion_cliente', 'nro_documento'].includes(name)) {
+            value = value.toUpperCase();
+        }
         setClientData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleProductChange = (index, e) => {
-        const { name, value } = e.target;
+        let { name, value } = e.target;
         const newProducts = [...products];
         const product = newProducts[index];
+        
+        // CORRECCIÓN: Convertir a mayúsculas solo para la descripción
+        if (name === 'descripcion') {
+            value = value.toUpperCase();
+        }
+
         product[name] = value;
         const unidades = parseFloat(product.unidades) || 0;
         const precioUnitario = parseFloat(product.precio_unitario) || 0;
@@ -76,7 +84,6 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
         const cotizacionData = { ...clientData, monto_total, productos: products.map(p => ({...p, unidades: parseInt(p.unidades) || 0, precio_unitario: parseFloat(p.precio_unitario) || 0}))};
         
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/cotizaciones/${cotizacionId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -84,7 +91,6 @@ const EditModal = ({ cotizacionId, closeModal, onUpdate }) => {
             });
             if (!response.ok) {
                 const errData = await response.json();
-                // Usamos la función de utilidad importada
                 const errorMessage = parseApiError(errData);
                 throw new Error(errorMessage);
             }
