@@ -1,5 +1,5 @@
 # backend/schemas.py
-# MODIFICADO PARA AÑADIR MOTIVO DE DESACTIVACIÓN
+# MODIFICADO PARA SOLUCIONAR ERROR DE MEMORIA (OOM)
 
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import List, Optional
@@ -60,11 +60,12 @@ class UserBase(BaseModel):
     email: EmailStr
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
+
+# Esquema completo del usuario, usado para el perfil del propio usuario (/users/me)
 class User(UserBase):
     id: int
     is_active: bool
     is_admin: bool
-    # --- AÑADIMOS EL NUEVO CAMPO A LA RESPUESTA ---
     deactivation_reason: Optional[str] = None
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -76,7 +77,7 @@ class User(UserBase):
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
-    cotizaciones: List[Cotizacion] = []
+    cotizaciones: List[Cotizacion] = [] # Este campo carga todas las cotizaciones
     model_config = ConfigDict(from_attributes=True)
 
 # --- Esquemas de Admin ---
@@ -85,16 +86,36 @@ class AdminUserView(BaseModel):
     email: str
     is_active: bool
     is_admin: bool
-    deactivation_reason: Optional[str] = None # Añadido para vista de admin
+    deactivation_reason: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
-# --- NUEVO ESQUEMA PARA ACTUALIZAR ESTADO CON MOTIVO ---
 class UserStatusUpdate(BaseModel):
     is_active: bool
     deactivation_reason: Optional[str] = None
 
-class AdminUserDetailView(User):
-    pass
+# CORRECCIÓN CLAVE:
+# Este es el nuevo esquema para la vista de detalles del admin.
+# Hereda de UserBase e incluye todos los campos del perfil,
+# PERO EXCLUYE deliberadamente el campo 'cotizaciones'.
+# Esto evita que el backend intente cargar todas las cotizaciones y se quede sin memoria.
+class AdminUserDetailView(UserBase):
+    id: int
+    is_active: bool
+    is_admin: bool
+    deactivation_reason: Optional[str] = None
+    business_name: Optional[str] = None
+    business_address: Optional[str] = None
+    business_ruc: Optional[str] = None
+    business_phone: Optional[str] = None
+    logo_filename: Optional[str] = None
+    primary_color: Optional[str] = None
+    pdf_note_1: Optional[str] = None
+    pdf_note_1_color: Optional[str] = None
+    pdf_note_2: Optional[str] = None
+    bank_accounts: Optional[List[BankAccount]] = None
+    # El campo 'cotizaciones' se omite a propósito aquí.
+    model_config = ConfigDict(from_attributes=True)
+
 
 # --- Esquemas de Token y DocumentoConsulta (sin cambios) ---
 class Token(BaseModel):
