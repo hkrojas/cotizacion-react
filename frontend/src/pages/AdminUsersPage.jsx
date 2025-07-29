@@ -1,5 +1,5 @@
 // src/pages/AdminUsersPage.jsx
-// PÁGINA ACTUALIZADA: Se mejora la disposición en móviles.
+// PÁGINA COMPLETA Y ADAPTABLE: Se expande todo el código funcional.
 
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
@@ -9,14 +9,151 @@ import ConfirmModal from '../components/ConfirmModal';
 import DeactivationModal from '../components/DeactivationModal';
 import { API_URL } from '../config';
 
-// ... (Los componentes Tooltip, Íconos y UserDetailsModal no necesitan cambios)
-const Tooltip = ({ text, children }) => ( <div className="relative group flex justify-center"> {children} <span className="absolute bottom-full mb-2 w-max px-2 py-1 bg-gray-700 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"> {text} </span> </div> );
+// Componente de Tooltip para los íconos
+const Tooltip = ({ text, children }) => (
+    <div className="relative group flex justify-center">
+        {children}
+        <span className="absolute bottom-full mb-2 w-max px-2 py-1 bg-gray-700 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+            {text}
+        </span>
+    </div>
+);
+
+// Íconos para las acciones
 const ViewIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>;
 const DeactivateIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>;
 const ActivateIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DeleteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
 const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
-const UserDetailsModal = ({ userId, onClose, token }) => { /* ...código del modal sin cambios... */ };
+
+const UserDetailsModal = ({ userId, onClose, token }) => {
+    const [userData, setUserData] = useState(null);
+    const [cotizaciones, setCotizaciones] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { addToast } = useContext(ToastContext);
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            setLoading(true);
+            try {
+                const [userRes, cotizacionesRes] = await Promise.all([
+                    fetch(`${API_URL}/admin/users/${userId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_URL}/admin/users/${userId}/cotizaciones`, { headers: { 'Authorization': `Bearer ${token}` } })
+                ]);
+
+                if (!userRes.ok) throw new Error('No se pudieron cargar los detalles del usuario.');
+                if (!cotizacionesRes.ok) throw new Error('No se pudieron cargar las cotizaciones.');
+
+                const userData = await userRes.json();
+                const cotizacionesData = await cotizacionesRes.json();
+
+                setUserData(userData);
+                setCotizaciones(cotizacionesData);
+            } catch (err) {
+                addToast(err.message, 'error');
+                onClose();
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (userId) {
+            fetchDetails();
+        }
+    }, [userId, token, addToast, onClose]);
+
+    const handleDownloadPdf = async (cotizacionId) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/cotizaciones/${cotizacionId}/pdf`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Error al generar el PDF.');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Cotizacion_${cotizacionId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (err) {
+            addToast(err.message, 'error');
+        }
+    };
+    
+    const DetailItem = ({ icon, label, value, colorClass = 'text-gray-600 dark:text-gray-300' }) => (
+        <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0 h-6 w-6 text-gray-400">{icon}</div>
+            <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+                <p className={`font-semibold ${colorClass}`}>{value || 'No especificado'}</p>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-3xl transform transition-all animate-slide-in-up max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                {loading ? <LoadingSpinner /> : userData && (
+                    <>
+                        <div className="flex justify-between items-center border-b dark:border-gray-700 pb-4 mb-6 flex-shrink-0">
+                            <div className="flex items-center space-x-4">
+                                {userData.logo_filename ? (
+                                    <img src={`${API_URL}/logos/${userData.logo_filename}`} alt="Logo" className="h-12 w-12 rounded-full object-cover" />
+                                ) : (
+                                    <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                        <svg className="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
+                                    </div>
+                                )}
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{userData.business_name || 'Detalles de Usuario'}</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{userData.email}</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+                        </div>
+                        
+                        <div className="overflow-y-auto pr-2 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <DetailItem icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} label="Fecha de Registro" value={new Date(userData.creation_date).toLocaleDateString('es-ES')} />
+                                <DetailItem icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label="Estado" value={userData.is_active ? 'Activo' : 'Inactivo'} colorClass={userData.is_active ? 'text-green-500' : 'text-red-500'} />
+                                <DetailItem icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>} label="RUC" value={userData.business_ruc} />
+                                {!userData.is_active && <DetailItem icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label="Motivo Inactividad" value={userData.deactivation_reason} colorClass="text-yellow-500" />}
+                            </div>
+
+                            <div>
+                                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200 border-t dark:border-gray-700 pt-4 mt-6">Cotizaciones Recientes</h4>
+                                {cotizaciones.length > 0 ? (
+                                    <ul className="mt-4 space-y-2">
+                                        {cotizaciones.slice(0, 5).map(cot => (
+                                            <li key={cot.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                <div>
+                                                    <p className="font-semibold text-gray-800 dark:text-gray-200">N° {cot.numero_cotizacion} - {cot.nombre_cliente}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(cot.fecha_creacion).toLocaleDateString('es-ES')} - {cot.moneda === 'SOLES' ? 'S/' : '$'}{cot.monto_total.toFixed(2)}</p>
+                                                </div>
+                                                <Tooltip text="Descargar PDF">
+                                                    <button onClick={() => handleDownloadPdf(cot.id)} className="p-2 rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                                                        <DownloadIcon />
+                                                    </button>
+                                                </Tooltip>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Este usuario no tiene cotizaciones.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-6 text-right border-t dark:border-gray-700 pt-4 flex-shrink-0">
+                             <button type="button" className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-semibold" onClick={onClose}>Cerrar</button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
 
 
 const AdminUsersPage = () => {
@@ -29,11 +166,72 @@ const AdminUsersPage = () => {
     const [deactivatingUser, setDeactivatingUser] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const fetchUsers = async () => { /* ...código sin cambios... */ };
+    const fetchUsers = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(`${API_URL}/admin/users/`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!response.ok) throw new Error('No se pudo cargar la lista de usuarios.');
+            const data = await response.json();
+            setUsers(data);
+        } catch (err) {
+            addToast(err.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => { fetchUsers(); }, [token]);
-    const handleToggleActive = async (user) => { /* ...código sin cambios... */ };
-    const handleConfirmDeactivation = async (reason) => { /* ...código sin cambios... */ };
-    const confirmDelete = async () => { /* ...código sin cambios... */ };
+
+    const handleToggleActive = async (user) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${user.id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ is_active: true, deactivation_reason: null })
+            });
+            if (!response.ok) throw new Error('No se pudo activar al usuario.');
+            addToast(`Usuario ${user.email} activado.`, 'success');
+            fetchUsers();
+        } catch (err) {
+            addToast(err.message, 'error');
+        }
+    };
+    
+    const handleConfirmDeactivation = async (reason) => {
+        if (!deactivatingUser || !reason) return;
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${deactivatingUser.id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ is_active: false, deactivation_reason: reason })
+            });
+            if (!response.ok) throw new Error('No se pudo desactivar al usuario.');
+            addToast(`Usuario ${deactivatingUser.email} desactivado.`, 'success');
+            fetchUsers();
+        } catch (err) {
+            addToast(err.message, 'error');
+        } finally {
+            setDeactivatingUser(null);
+        }
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingUser) return;
+        try {
+            const response = await fetch(`${API_URL}/admin/users/${deletingUser.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Error al eliminar el usuario.');
+            addToast(`Usuario ${deletingUser.email} eliminado con éxito.`, 'success');
+            fetchUsers();
+        } catch (err) {
+            addToast(err.message, 'error');
+        } finally {
+            setDeletingUser(null);
+        }
+    };
+
     const formatDate = (dateString) => new Date(dateString).toLocaleDateString('es-ES');
     
     const filteredUsers = users.filter(user =>
@@ -42,7 +240,6 @@ const AdminUsersPage = () => {
 
     return (
         <div className="animate-fade-in">
-            {/* --- CABECERA MEJORADA PARA MÓVILES --- */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Gestionar Usuarios</h2>
                 <div className="relative w-full sm:w-auto">
