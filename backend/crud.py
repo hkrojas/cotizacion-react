@@ -1,7 +1,7 @@
 # backend/crud.py
 # MODIFICADO PARA SOLUCIONAR ERROR DE MEMORIA (OOM)
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, noload
 import models, schemas, security
 
 # --- Funciones de Usuario ---
@@ -51,7 +51,15 @@ def create_cotizacion(db: Session, cotizacion: schemas.CotizacionCreate, user_id
     return db_cotizacion
 
 def get_cotizaciones_by_owner(db: Session, owner_id: int):
-    return db.query(models.Cotizacion).filter(models.Cotizacion.owner_id == owner_id).order_by(models.Cotizacion.id.desc()).all()
+    # CORRECCIÓN CLAVE:
+    # Usamos options(noload(...)) para decirle a SQLAlchemy explícitamente
+    # que NO cargue la relación 'productos' al hacer esta consulta.
+    # Esto evita la carga masiva de datos y soluciona el problema de memoria.
+    return db.query(models.Cotizacion)\
+        .options(noload(models.Cotizacion.productos))\
+        .filter(models.Cotizacion.owner_id == owner_id)\
+        .order_by(models.Cotizacion.id.desc())\
+        .all()
 
 def get_cotizacion_by_id(db: Session, cotizacion_id: int, owner_id: int):
     return db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == owner_id).first()

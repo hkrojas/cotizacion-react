@@ -17,7 +17,7 @@ class Producto(ProductoBase):
     cotizacion_id: int
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquemas de Cotización (sin cambios) ---
+# --- Esquemas de Cotización (MODIFICADOS) ---
 class CotizacionBase(BaseModel):
     nombre_cliente: str = Field(..., min_length=1)
     direccion_cliente: str
@@ -25,8 +25,21 @@ class CotizacionBase(BaseModel):
     nro_documento: str = Field(..., min_length=1)
     moneda: str
     monto_total: float
+
+# NUEVO ESQUEMA: Una versión ligera de la cotización para usar en listas.
+# No incluye la lista de productos para evitar sobrecarga de memoria.
+class CotizacionInList(CotizacionBase):
+    id: int
+    owner_id: int
+    numero_cotizacion: str
+    fecha_creacion: datetime
+    # El campo 'productos' se omite a propósito.
+    model_config = ConfigDict(from_attributes=True)
+
 class CotizacionCreate(CotizacionBase):
     productos: List[ProductoCreate] = Field(..., min_length=1)
+
+# Este es el esquema completo, para ver UNA SOLA cotización con todos sus detalles.
 class Cotizacion(CotizacionBase):
     id: int
     owner_id: int
@@ -77,7 +90,8 @@ class User(UserBase):
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
-    cotizaciones: List[Cotizacion] = [] # Este campo carga todas las cotizaciones
+    # CORRECCIÓN: Usamos el esquema ligero para la lista de cotizaciones del perfil.
+    cotizaciones: List[CotizacionInList] = []
     model_config = ConfigDict(from_attributes=True)
 
 # --- Esquemas de Admin ---
@@ -93,11 +107,7 @@ class UserStatusUpdate(BaseModel):
     is_active: bool
     deactivation_reason: Optional[str] = None
 
-# CORRECCIÓN CLAVE:
-# Este es el nuevo esquema para la vista de detalles del admin.
-# Hereda de UserBase e incluye todos los campos del perfil,
-# PERO EXCLUYE deliberadamente el campo 'cotizaciones'.
-# Esto evita que el backend intente cargar todas las cotizaciones y se quede sin memoria.
+# Este esquema ya estaba correcto, no carga cotizaciones.
 class AdminUserDetailView(UserBase):
     id: int
     is_active: bool
@@ -113,7 +123,6 @@ class AdminUserDetailView(UserBase):
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
-    # El campo 'cotizaciones' se omite a propósito aquí.
     model_config = ConfigDict(from_attributes=True)
 
 

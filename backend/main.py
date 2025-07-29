@@ -103,6 +103,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
+# --- Endpoints de Cotizaciones y Perfil ---
 @app.post("/consultar-documento")
 def consultar_documento(consulta: schemas.DocumentoConsulta, current_user: models.User = Depends(get_current_user)):
     token = settings.API_TOKEN
@@ -129,7 +130,8 @@ def consultar_documento(consulta: schemas.DocumentoConsulta, current_user: model
 def create_new_cotizacion(cotizacion: schemas.CotizacionCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.create_cotizacion(db=db, cotizacion=cotizacion, user_id=current_user.id)
 
-@app.get("/cotizaciones/", response_model=List[schemas.Cotizacion])
+# CORRECCIÓN: Actualizar el response_model para usar el esquema ligero.
+@app.get("/cotizaciones/", response_model=List[schemas.CotizacionInList])
 def read_cotizaciones(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.get_cotizaciones_by_owner(db=db, owner_id=current_user.id)
 
@@ -208,7 +210,7 @@ def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), curren
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
 
-# --- Endpoints de Administrador (MODIFICADOS) ---
+# --- Endpoints de Administrador ---
 @app.get("/admin/users/", response_model=List[schemas.AdminUserView])
 def get_users_for_admin(db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     users = crud.get_all_users(db)
@@ -216,18 +218,17 @@ def get_users_for_admin(db: Session = Depends(get_db), admin_user: models.User =
         user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return users
 
-# CORRECCIÓN: Este endpoint ahora solo devuelve los datos del perfil, sin las cotizaciones.
 @app.get("/admin/users/{user_id}", response_model=schemas.AdminUserDetailView)
 def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
-    user = crud.get_user_by_id_for_admin(db, user_id=user_id) # Usamos una nueva función de crud
+    user = crud.get_user_by_id_for_admin(db, user_id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return user
 
-# NUEVO ENDPOINT: Para cargar las cotizaciones de un usuario de forma separada.
-@app.get("/admin/users/{user_id}/cotizaciones", response_model=List[schemas.Cotizacion])
+# CORRECCIÓN: Actualizar el response_model para usar el esquema ligero.
+@app.get("/admin/users/{user_id}/cotizaciones", response_model=List[schemas.CotizacionInList])
 def get_user_cotizaciones_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     cotizaciones = crud.get_cotizaciones_by_owner(db, owner_id=user_id)
     if not cotizaciones:
