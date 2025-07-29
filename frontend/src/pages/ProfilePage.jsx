@@ -3,9 +3,9 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
-import PageHeader from '../components/PageHeader'; // Importar
-import Card from '../components/Card'; // Importar
-import Button from '../components/Button'; // Importar
+import PageHeader from '../components/PageHeader';
+import Card from '../components/Card';
+import Button from '../components/Button';
 import { API_URL } from '../config';
 import { parseApiError } from '../utils/apiUtils';
 
@@ -22,8 +22,8 @@ const ProfilePage = () => {
     const [lookupRuc, setLookupRuc] = useState('');
     const [logoFile, setLogoFile] = useState(null);
     const [loadingConsulta, setLoadingConsulta] = useState(false);
-    const [loadingProfile, setLoadingProfile] = useState(false); // Estado para guardar perfil
-    const [loadingLogo, setLoadingLogo] = useState(false); // Estado para subir logo
+    const [loadingProfile, setLoadingProfile] = useState(false);
+    const [loadingLogo, setLoadingLogo] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -155,7 +155,7 @@ const ProfilePage = () => {
             const updatedUser = await response.json();
             updateUser(updatedUser);
             addToast('Logo subido con éxito.', 'success');
-            setLogoFile(null); // Limpiar el input de archivo
+            setLogoFile(null);
         } catch (error) {
             addToast(`Error: ${error.message}`, 'error');
         } finally {
@@ -246,7 +246,40 @@ const ProfilePage = () => {
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
                                                 </button>
                                             )}
-                                            {/* ... resto del formulario de cuentas ... */}
+                                            {/* --- INICIO DE LA CORRECCIÓN --- */}
+                                            <div>
+                                                <label className={labelStyles}>Banco</label>
+                                                <input name="banco" value={account.banco} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: Banco de la Nación"/>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className={labelStyles}>Tipo de Cuenta</label>
+                                                    {isBancoNacion ? (
+                                                        <input value="Cuenta Detracción" readOnly className={`${inputStyles} bg-gray-200 dark:bg-gray-800 cursor-not-allowed`} />
+                                                    ) : (
+                                                        <select name="tipo_cuenta" value={account.tipo_cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
+                                                            <option value="Cta Ahorro">Cta Ahorro</option>
+                                                            <option value="Cta Corriente">Cta Corriente</option>
+                                                        </select>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <label className={labelStyles}>Moneda</label>
+                                                    <select name="moneda" value={account.moneda} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
+                                                        <option value="Soles">Soles</option>
+                                                        <option value="Dólares">Dólares</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className={labelStyles}>Número de Cuenta</label>
+                                                <input name="cuenta" value={account.cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 00045115666"/>
+                                            </div>
+                                            <div>
+                                                <label className={labelStyles}>CCI</label>
+                                                <input name="cci" value={account.cci} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 01804500004511566655"/>
+                                            </div>
+                                            {/* --- FIN DE LA CORRECCIÓN --- */}
                                         </div>
                                     )
                                 })}
@@ -258,7 +291,6 @@ const ProfilePage = () => {
                             </div>
                         </Card>
                         
-                        {/* Barra de guardado pegajosa */}
                         <div className="sticky bottom-0 py-4 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg">
                             <div className="max-w-2xl mx-auto">
                                 <Button type="submit" loading={loadingProfile} className="w-full text-lg py-3">
