@@ -14,12 +14,45 @@
   }
 }
 
+/* --- NUEVA SECCIÓN DE ANIMACIONES --- */
 /*
-  Clase personalizada para los selects que creamos anteriormente.
-  No es necesario eliminarla, puede quedarse aquí.
+  Aquí definimos las animaciones personalizadas que usaremos en la aplicación.
+  Las añadimos a la capa de 'utilities' de Tailwind para que se puedan purgar
+  si no se usan y para que funcionen bien con otras utilidades.
 */
-.custom-select {
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
-  appearance: none !important;
+@layer utilities {
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.5s ease-out forwards;
+  }
+
+  /*
+    Clases para animaciones escalonadas (stagger).
+    Usamos variables CSS para el retraso, lo que nos permite
+    asignarlo dinámicamente desde React.
+  */
+  .staggered-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+    animation-delay: var(--stagger-delay, 0s);
+    opacity: 0; /* Empieza invisible */
+  }
 }
