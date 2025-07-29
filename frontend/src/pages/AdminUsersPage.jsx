@@ -24,23 +24,36 @@ const ViewIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-
 const DeactivateIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>;
 const ActivateIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DeleteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
 
-// --- CÓDIGO DEL MODAL DE DETALLES RESTAURADO ---
+
+// --- CÓDIGO DEL MODAL DE DETALLES ACTUALIZADO ---
 const UserDetailsModal = ({ userId, onClose, token }) => {
     const [userData, setUserData] = useState(null);
+    const [cotizaciones, setCotizaciones] = useState([]);
     const [loading, setLoading] = useState(true);
     const { addToast } = useContext(ToastContext);
 
     useEffect(() => {
-        const fetchUserDetails = async () => {
+        const fetchDetails = async () => {
             setLoading(true);
             try {
-                const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+                // Fetch user details
+                const userResponse = await fetch(`${API_URL}/admin/users/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (!response.ok) throw new Error('No se pudieron cargar los detalles del usuario.');
-                const data = await response.json();
-                setUserData(data);
+                if (!userResponse.ok) throw new Error('No se pudieron cargar los detalles del usuario.');
+                const userData = await userResponse.json();
+                setUserData(userData);
+
+                // Fetch user cotizaciones
+                const cotizacionesResponse = await fetch(`${API_URL}/admin/users/${userId}/cotizaciones`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!cotizacionesResponse.ok) throw new Error('No se pudieron cargar las cotizaciones del usuario.');
+                const cotizacionesData = await cotizacionesResponse.json();
+                setCotizaciones(cotizacionesData);
+
             } catch (err) {
                 addToast(err.message, 'error');
                 onClose();
@@ -50,9 +63,28 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
         };
 
         if (userId) {
-            fetchUserDetails();
+            fetchDetails();
         }
     }, [userId, token, addToast, onClose]);
+    
+    const handleDownloadPdf = async (cotizacionId) => {
+        try {
+            const response = await fetch(`${API_URL}/admin/cotizaciones/${cotizacionId}/pdf`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Error al generar el PDF.');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Cotizacion_${cotizacionId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (err) {
+            addToast(err.message, 'error');
+        }
+    };
 
     return (
         <div 
@@ -60,12 +92,12 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
             onClick={onClose}
         >
             <div 
-                className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-lg transform transition-all animate-slide-in-up"
+                className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-2xl transform transition-all animate-slide-in-up max-h-[90vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
                 {loading ? <LoadingSpinner /> : userData && (
                     <>
-                        <div className="flex justify-between items-center border-b dark:border-gray-700 pb-3 mb-4">
+                        <div className="flex justify-between items-center border-b dark:border-gray-700 pb-3 mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
                                 Detalles de Usuario
                             </h3>
@@ -73,15 +105,42 @@ const UserDetailsModal = ({ userId, onClose, token }) => {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
-                        <div className="space-y-3 text-sm">
-                            <p><strong>Email:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.email}</span></p>
-                            <p><strong>Fecha de Registro:</strong> <span className="text-gray-600 dark:text-gray-300">{new Date(userData.creation_date).toLocaleDateString('es-ES')}</span></p>
-                            <p><strong>Estado:</strong> <span className={`font-semibold ${userData.is_active ? 'text-green-600' : 'text-red-600'}`}>{userData.is_active ? 'Activo' : 'Inactivo'}</span></p>
-                            {!userData.is_active && <p><strong>Motivo Inactividad:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.deactivation_reason}</span></p>}
-                            <p><strong>Nombre Negocio:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.business_name || 'No especificado'}</span></p>
-                            <p><strong>RUC:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.business_ruc || 'No especificado'}</span></p>
+                        
+                        <div className="overflow-y-auto pr-2">
+                            <div className="space-y-3 text-sm mb-6">
+                                <p><strong>Email:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.email}</span></p>
+                                <p><strong>Fecha de Registro:</strong> <span className="text-gray-600 dark:text-gray-300">{new Date(userData.creation_date).toLocaleDateString('es-ES')}</span></p>
+                                <p><strong>Estado:</strong> <span className={`font-semibold ${userData.is_active ? 'text-green-600' : 'text-red-600'}`}>{userData.is_active ? 'Activo' : 'Inactivo'}</span></p>
+                                {!userData.is_active && <p><strong>Motivo Inactividad:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.deactivation_reason}</span></p>}
+                                <p><strong>Nombre Negocio:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.business_name || 'No especificado'}</span></p>
+                                <p><strong>RUC:</strong> <span className="text-gray-600 dark:text-gray-300">{userData.business_ruc || 'No especificado'}</span></p>
+                            </div>
+
+                            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200 border-t dark:border-gray-700 pt-4">
+                                Cotizaciones Recientes
+                            </h4>
+                            {cotizaciones.length > 0 ? (
+                                <ul className="mt-4 space-y-2">
+                                    {cotizaciones.slice(0, 5).map(cot => (
+                                        <li key={cot.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                            <div>
+                                                <p className="font-semibold">N° {cot.numero_cotizacion} - {cot.nombre_cliente}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {new Date(cot.fecha_creacion).toLocaleDateString('es-ES')} - {cot.moneda === 'SOLES' ? 'S/' : '$'}{cot.monto_total.toFixed(2)}
+                                                </p>
+                                            </div>
+                                            <button onClick={() => handleDownloadPdf(cot.id)} className="text-blue-500 hover:text-blue-700">
+                                                <DownloadIcon />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Este usuario no tiene cotizaciones.</p>
+                            )}
                         </div>
-                        <div className="mt-6 text-right">
+
+                        <div className="mt-6 text-right border-t dark:border-gray-700 pt-4 flex-shrink-0">
                              <button
                                 type="button"
                                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
