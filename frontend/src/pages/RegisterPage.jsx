@@ -77,11 +77,14 @@ const RegisterPage = () => {
         
         setStrengthScore(score);
         
-        if (confirmPassword && password !== confirmPassword) {
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Usamos .trim() para eliminar espacios en blanco antes de comparar
+        if (confirmPassword && password.trim() !== confirmPassword.trim()) {
             newErrors.match = 'Las contraseñas no coinciden.';
         } else {
             delete newErrors.match;
         }
+        // --- FIN DE LA CORRECCIÓN ---
         setErrors(newErrors);
 
     }, [password, confirmPassword]);
@@ -90,7 +93,9 @@ const RegisterPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (password !== confirmPassword) {
+        // --- CORRECCIÓN ADICIONAL ---
+        // También usamos .trim() en la validación final
+        if (password.trim() !== confirmPassword.trim()) {
             addToast('Las contraseñas no coinciden.', 'error');
             return;
         }
@@ -104,7 +109,7 @@ const RegisterPage = () => {
             const response = await fetch(`${API_URL}/users/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ email: email.trim(), password: password.trim() }),
             });
 
             if (!response.ok) {
@@ -176,7 +181,6 @@ const RegisterPage = () => {
                             placeholder="Cree una contraseña"
                             className="bg-transparent border-none outline-none w-full text-gray-800 dark:text-gray-200"
                         />
-                        {/* --- INICIO DE LA CORRECCIÓN DEL SVG --- */}
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="focus:outline-none">
                             {showPassword ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-500 dark:hover:text-blue-300" viewBox="0 0 20 20" fill="currentColor">
@@ -189,7 +193,6 @@ const RegisterPage = () => {
                                 </svg>
                             )}
                         </button>
-                         {/* --- FIN DE LA CORRECCIÓN DEL SVG --- */}
                     </div>
                     <PasswordStrengthMeter score={strengthScore} />
                 </div>
