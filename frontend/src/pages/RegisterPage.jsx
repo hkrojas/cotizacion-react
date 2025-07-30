@@ -1,25 +1,106 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 import UserIcon from '../components/UserIcon';
 import LockIcon from '../components/LockIcon';
+import Button from '../components/Button';
 import { ToastContext } from '../context/ToastContext';
-import { API_URL } from '../config'; // 1. Importamos la URL de la API centralizada
-import { parseApiError } from '../utils/apiUtils'; // 2. Importamos la función de utilidad
+import { API_URL } from '../config';
+import { parseApiError } from '../utils/apiUtils';
 
-// 3. Eliminamos la función parseApiError que estaba duplicada aquí.
+// Componente para el indicador de fortaleza de contraseña
+const PasswordStrengthMeter = ({ score }) => {
+    const strength = {
+        0: { text: '', color: '' },
+        1: { text: 'Débil', color: 'bg-red-500' },
+        2: { text: 'Regular', color: 'bg-yellow-500' },
+        3: { text: 'Buena', color: 'bg-blue-500' },
+        4: { text: 'Fuerte', color: 'bg-green-500' },
+    };
+
+    return (
+        <div className="mt-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                <div 
+                    className={`h-2 rounded-full transition-all duration-300 ${strength[score]?.color || ''}`}
+                    style={{ width: `${score * 25}%` }}
+                ></div>
+            </div>
+            <p className="text-right text-sm mt-1 text-gray-600 dark:text-gray-400">
+                {strength[score]?.text}
+            </p>
+        </div>
+    );
+};
+
 
 const RegisterPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [strengthScore, setStrengthScore] = useState(0);
+    const [errors, setErrors] = useState({});
+
     const { addToast } = useContext(ToastContext);
     const navigate = useNavigate();
 
+    useEffect(() => {
+        let score = 0;
+        const newErrors = {};
+
+        if (password.length >= 8) {
+            score++;
+            delete newErrors.length;
+        } else {
+            newErrors.length = 'Mínimo 8 caracteres.';
+        }
+        if (/[A-Z]/.test(password)) {
+            score++;
+            delete newErrors.uppercase;
+        } else {
+            newErrors.uppercase = 'Incluir una mayúscula.';
+        }
+        if (/[a-z]/.test(password)) {
+            score++;
+            delete newErrors.lowercase;
+        } else {
+            newErrors.lowercase = 'Incluir una minúscula.';
+        }
+        if (/[0-9]/.test(password)) {
+            score++;
+            delete newErrors.number;
+        } else {
+            newErrors.number = 'Incluir un número.';
+        }
+        
+        setStrengthScore(score);
+        
+        if (confirmPassword && password !== confirmPassword) {
+            newErrors.match = 'Las contraseñas no coinciden.';
+        } else {
+            delete newErrors.match;
+        }
+        setErrors(newErrors);
+
+    }, [password, confirmPassword]);
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (password !== confirmPassword) {
+            addToast('Las contraseñas no coinciden.', 'error');
+            return;
+        }
+        if (strengthScore < 3) {
+            addToast('La contraseña no es lo suficientemente segura.', 'error');
+            return;
+        }
+
+        setLoading(true);
         try {
-            // Usamos la API_URL importada
             const response = await fetch(`${API_URL}/users/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -28,7 +109,6 @@ const RegisterPage = () => {
 
             if (!response.ok) {
                 const errData = await response.json();
-                // Usamos la función de utilidad importada
                 const errorMessage = parseApiError(errData);
                 throw new Error(errorMessage);
             }
@@ -38,7 +118,16 @@ const RegisterPage = () => {
 
         } catch (err) {
             addToast(err.message, 'error');
+        } finally {
+            setLoading(false);
         }
+    };
+
+    const passwordRequirements = {
+        length: 'Mínimo 8 caracteres',
+        uppercase: 'Una letra mayúscula (A-Z)',
+        lowercase: 'Una letra minúscula (a-z)',
+        number: 'Un número (0-9)',
     };
 
     return (
@@ -52,7 +141,7 @@ const RegisterPage = () => {
                     </div>
                     <div className="ml-3">
                         <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                            El correo electrónico que uses para el registro será visible en las cotizaciones que generes.
+                            El correo electrónico que uses será visible en las cotizaciones que generes.
                         </p>
                     </div>
                 </div>
@@ -72,36 +161,76 @@ const RegisterPage = () => {
                         className="bg-transparent border-none outline-none w-full text-gray-800 dark:text-gray-200"
                     />
                 </div>
-                <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
-                    <LockIcon />
-                    <input 
-                        id="password"
-                        name="password"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="new-password"
-                        value={password} 
-                        onChange={(e) => setPassword(e.target.value)} 
-                        required 
-                        placeholder="Cree una contraseña"
-                        className="bg-transparent border-none outline-none w-full text-gray-800 dark:text-gray-200"
-                    />
-                    <svg onClick={() => setShowPassword(!showPassword)} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-500 dark:hover:text-blue-300" viewBox="0 0 20 20" fill="currentColor">
-                        {showPassword ? (
-                           <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.27 6.957 14.525 4.5 10 4.5c-1.756 0-3.41.59-4.815 1.561L3.707 2.293zM10.707 10.707a2 2 0 00-2.828-2.828l2.828 2.828zM10 12a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                        ) : (
-                           <>
-                               <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                               <path fillRule="evenodd" d="M.458 10C1.73 6.957 5.475 4.5 10 4.5s8.27 2.457 9.542 5.5c-1.272 3.043-5.068 5.5-9.542 5.5S1.73 13.043.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                           </>
-                        )}
-                    </svg>
+                
+                <div>
+                    <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
+                        <LockIcon />
+                        <input 
+                            id="password"
+                            name="password"
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="new-password"
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)} 
+                            required 
+                            placeholder="Cree una contraseña"
+                            className="bg-transparent border-none outline-none w-full text-gray-800 dark:text-gray-200"
+                        />
+                        {/* --- INICIO DE LA CORRECCIÓN DEL SVG --- */}
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="focus:outline-none">
+                            {showPassword ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-500 dark:hover:text-blue-300" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path fillRule="evenodd" d="M.458 10C1.73 6.957 5.475 4.5 10 4.5s8.27 2.457 9.542 5.5c-1.272 3.043-5.068 5.5-9.542 5.5S1.73 13.043.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-500 dark:hover:text-blue-300" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.27 6.957 14.525 4.5 10 4.5c-1.756 0-3.41.59-4.815 1.561L3.707 2.293zM10.707 10.707a2 2 0 00-2.828-2.828l2.828 2.828zM10 12a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                </svg>
+                            )}
+                        </button>
+                         {/* --- FIN DE LA CORRECCIÓN DEL SVG --- */}
+                    </div>
+                    <PasswordStrengthMeter score={strengthScore} />
                 </div>
-                <button 
+
+                <div>
+                    <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-md py-3 px-4">
+                        <LockIcon />
+                        <input 
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="new-password"
+                            value={confirmPassword} 
+                            onChange={(e) => setConfirmPassword(e.target.value)} 
+                            required 
+                            placeholder="Confirme su contraseña"
+                            className="bg-transparent border-none outline-none w-full text-gray-800 dark:text-gray-200"
+                        />
+                    </div>
+                    {errors.match && <p className="text-red-500 text-sm mt-1">{errors.match}</p>}
+                </div>
+                
+                <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                    <p className="font-semibold">La contraseña debe contener:</p>
+                    <ul className="list-disc list-inside pl-2">
+                       {Object.entries(passwordRequirements).map(([key, value]) => (
+                           <li key={key} className={!errors[key] && password.length > 0 ? 'text-green-500 transition-colors' : 'transition-colors'}>
+                               {value}
+                           </li>
+                       ))}
+                    </ul>
+                </div>
+
+                <Button 
                     type="submit" 
-                    className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-md transition-all duration-300 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95"
+                    className="w-full"
+                    loading={loading}
+                    disabled={Object.keys(errors).length > 0 || !email || !password || !confirmPassword}
                 >
                     Registrarse
-                </button>
+                </Button>
             </form>
             <p className="text-center mt-4 text-sm text-gray-700 dark:text-gray-300">
                 ¿Ya tienes una cuenta? <Link to="/login" className="text-blue-600 hover:underline font-semibold">Inicia sesión</Link>
