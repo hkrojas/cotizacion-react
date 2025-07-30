@@ -5,6 +5,7 @@ import requests, os, re, shutil
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import func # ¡ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ PRESENTE!
 from typing import List
 from jose import JWTError, jwt
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,8 +27,6 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# --- FUNCIÓN CORREGIDA ---
-# El bloque try/finally ahora está correctamente indentado.
 def get_db():
     db = SessionLocal()
     try:
@@ -164,12 +163,22 @@ def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admi
 def get_user_cotizaciones_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     return crud.get_cotizaciones_by_owner(db, owner_id=user_id)
 
+# ===================================================================
+# ESTA ES LA FUNCIÓN CORREGIDA
+# ===================================================================
 @app.put("/admin/users/{user_id}/status", response_model=schemas.AdminUserView)
 def update_user_status_for_admin(user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     user = crud.update_user_status(db, user_id=user_id, is_active=status_update.is_active, deactivation_reason=status_update.deactivation_reason)
-    if not user: raise HTTPException(status_code=404, detail="User not found")
+    if not user: 
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Se calcula y añade el conteo de cotizaciones que faltaba
+    cotizaciones_count = db.query(func.count(models.Cotizacion.id)).filter(models.Cotizacion.owner_id == user_id).scalar()
+    user.cotizaciones_count = cotizaciones_count
+    
     user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return user
+# ===================================================================
 
 @app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
