@@ -17,7 +17,7 @@ primary_region = 'bog'
   processes = ['app']
 
 [[vm]]
-  size = 'shared-cpu-1x'
+  size = 'shared-cpu-2x'
 
 # --- SECCIÓN AÑADIDA PARA MONTAR EL VOLUMEN ---
 # Esto conecta el volumen 'logos_data' a la carpeta '/code/logos' de tu aplicación,
