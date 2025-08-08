@@ -1,4 +1,4 @@
-// src/pages/ProfilePage.jsx
+// frontend/src/pages/ProfilePage.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
@@ -9,6 +9,36 @@ import Button from '../components/Button';
 import { API_URL } from '../config';
 import { parseApiError } from '../utils/apiUtils';
 
+// --- NUEVO COMPONENTE MODAL PARA MOSTRAR EMPRESAS ---
+const CompaniesModal = ({ companies, onClose }) => (
+    <div 
+        className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+        onClick={onClose}
+    >
+        <div 
+            className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-lg transform transition-all animate-slide-in-up"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Empresas Registradas en Apis Perú</h2>
+            {companies.length > 0 ? (
+                <ul className="space-y-3 max-h-80 overflow-y-auto">
+                    {companies.map(company => (
+                        <li key={company.id} className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">{company.razon_social}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">RUC: {company.ruc}</p>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-gray-500 dark:text-gray-400">No se encontraron empresas registradas en tu cuenta de Apis Perú.</p>
+            )}
+            <div className="mt-6 text-right">
+                <Button onClick={onClose} variant="secondary">Cerrar</Button>
+            </div>
+        </div>
+    </div>
+);
+
 const ProfilePage = () => {
     const { user, token, updateUser } = useContext(AuthContext);
     const { addToast } = useContext(ToastContext);
@@ -17,6 +47,7 @@ const ProfilePage = () => {
         business_name: '', business_address: '', business_ruc: '',
         business_phone: '', primary_color: '#004aad',
         pdf_note_1: '', pdf_note_1_color: '#FF0000', pdf_note_2: '',
+        apisperu_user: '', apisperu_password: ''
     });
     const [bankAccounts, setBankAccounts] = useState([]);
     const [lookupRuc, setLookupRuc] = useState('');
@@ -24,6 +55,10 @@ const ProfilePage = () => {
     const [loadingConsulta, setLoadingConsulta] = useState(false);
     const [loadingProfile, setLoadingProfile] = useState(false);
     const [loadingLogo, setLoadingLogo] = useState(false);
+    
+    // --- NUEVOS ESTADOS PARA LA LISTA DE EMPRESAS ---
+    const [companies, setCompanies] = useState(null);
+    const [loadingCompanies, setLoadingCompanies] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -36,11 +71,33 @@ const ProfilePage = () => {
                 pdf_note_1: user.pdf_note_1 || 'TODO TRABAJO SE REALIZA CON EL 50% DE ADELANTO',
                 pdf_note_1_color: user.pdf_note_1_color || '#FF0000',
                 pdf_note_2: user.pdf_note_2 || 'LOS PRECIOS NO INCLUYEN ENVIOS',
+                apisperu_user: user.apisperu_user || '',
+                apisperu_password: ''
             });
             setBankAccounts(Array.isArray(user.bank_accounts) && user.bank_accounts.length > 0 ? user.bank_accounts : []);
             setLookupRuc(user.business_ruc || '');
         }
     }, [user]);
+
+    // --- NUEVA FUNCIÓN PARA OBTENER EMPRESAS ---
+    const handleFetchCompanies = async () => {
+        setLoadingCompanies(true);
+        setCompanies(null);
+        try {
+            const response = await fetch(`${API_URL}/facturacion/empresas`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.detail || 'No se pudieron obtener las empresas.');
+            }
+            setCompanies(data);
+        } catch (err) {
+            addToast(err.message, 'error');
+        } finally {
+            setLoadingCompanies(false);
+        }
+    };
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -57,10 +114,8 @@ const ProfilePage = () => {
         
         if (name === 'banco' && value.toLowerCase().includes('nación')) {
             newAccounts[index].tipo_cuenta = 'Cuenta Detracción';
-        } else if (name === 'banco') {
-            if (newAccounts[index].tipo_cuenta === 'Cuenta Detracción') {
-                newAccounts[index].tipo_cuenta = 'Cta Ahorro';
-            }
+        } else if (name === 'banco' && newAccounts[index].tipo_cuenta === 'Cuenta Detracción') {
+            newAccounts[index].tipo_cuenta = 'Cta Ahorro';
         }
         
         setBankAccounts(newAccounts);
@@ -69,11 +124,7 @@ const ProfilePage = () => {
     const addBankAccount = () => {
         if (bankAccounts.length < 3) {
             setBankAccounts([...bankAccounts, { 
-                banco: '', 
-                tipo_cuenta: 'Cta Ahorro', 
-                moneda: 'Soles', 
-                cuenta: '', 
-                cci: '' 
+                banco: '', tipo_cuenta: 'Cta Ahorro', moneda: 'Soles', cuenta: '', cci: '' 
             }]);
         } else {
             addToast('Puedes agregar un máximo de 3 cuentas bancarias.', 'error');
@@ -87,8 +138,7 @@ const ProfilePage = () => {
 
     const handleConsultarNegocio = async () => {
         if (!lookupRuc) {
-            addToast('Por favor, ingrese un RUC para buscar.', 'error');
-            return;
+            addToast('Por favor, ingrese un RUC para buscar.', 'error'); return;
         }
         setLoadingConsulta(true);
         try {
@@ -114,7 +164,12 @@ const ProfilePage = () => {
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
         setLoadingProfile(true);
+        
         const profileData = { ...formData, bank_accounts: bankAccounts };
+        if (!profileData.apisperu_password) {
+            delete profileData.apisperu_password;
+        }
+
         try {
             const response = await fetch(`${API_URL}/profile/`, {
                 method: 'PUT',
@@ -139,8 +194,7 @@ const ProfilePage = () => {
     const handleLogoSubmit = async (e) => {
         e.preventDefault();
         if (!logoFile) {
-            addToast('Por favor, selecciona un archivo de logo.', 'error');
-            return;
+            addToast('Por favor, selecciona un archivo de logo.', 'error'); return;
         }
         setLoadingLogo(true);
         const logoFormData = new FormData();
@@ -165,7 +219,6 @@ const ProfilePage = () => {
 
     const inputStyles = "mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200";
     const labelStyles = "block text-sm font-medium text-gray-700 dark:text-gray-300";
-
     const headerIcon = (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -174,6 +227,8 @@ const ProfilePage = () => {
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+            {companies && <CompaniesModal companies={companies} onClose={() => setCompanies(null)} />}
+            
             <PageHeader title="Mi Perfil de Negocio" icon={headerIcon}>
                  <Link to="/dashboard" className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300">
                     Volver al Dashboard
@@ -210,7 +265,6 @@ const ProfilePage = () => {
                                 </div>
                             </div>
                         </Card>
-
                         <Card>
                             <div className="space-y-4">
                                 <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-200">Personalización del PDF</h2>
@@ -232,62 +286,77 @@ const ProfilePage = () => {
                                 </div>
                             </div>
                         </Card>
-
                         <Card>
                             <div className="space-y-4">
                                 <h2 className="text-xl font-semibold border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-200">Datos Bancarios</h2>
-                                {bankAccounts.map((account, index) => {
-                                    const isBancoNacion = account.banco && account.banco.toLowerCase().includes('nación');
-                                    return (
-                                        <div key={index} className="p-4 border dark:border-gray-700 rounded-md space-y-3 relative">
-                                            <h3 className="font-semibold text-gray-800 dark:text-gray-200">Cuenta {index + 1}</h3>
-                                            {bankAccounts.length > 0 && (
-                                                <button type="button" onClick={() => removeBankAccount(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-transform duration-200 hover:scale-125">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-                                                </button>
-                                            )}
-                                            {/* --- INICIO DE LA CORRECCIÓN --- */}
-                                            <div>
-                                                <label className={labelStyles}>Banco</label>
-                                                <input name="banco" value={account.banco} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: Banco de la Nación"/>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className={labelStyles}>Tipo de Cuenta</label>
-                                                    {isBancoNacion ? (
-                                                        <input value="Cuenta Detracción" readOnly className={`${inputStyles} bg-gray-200 dark:bg-gray-800 cursor-not-allowed`} />
-                                                    ) : (
-                                                        <select name="tipo_cuenta" value={account.tipo_cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
-                                                            <option value="Cta Ahorro">Cta Ahorro</option>
-                                                            <option value="Cta Corriente">Cta Corriente</option>
-                                                        </select>
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <label className={labelStyles}>Moneda</label>
-                                                    <select name="moneda" value={account.moneda} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
-                                                        <option value="Soles">Soles</option>
-                                                        <option value="Dólares">Dólares</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className={labelStyles}>Número de Cuenta</label>
-                                                <input name="cuenta" value={account.cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 00045115666"/>
-                                            </div>
-                                            <div>
-                                                <label className={labelStyles}>CCI</label>
-                                                <input name="cci" value={account.cci} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 01804500004511566655"/>
-                                            </div>
-                                            {/* --- FIN DE LA CORRECCIÓN --- */}
+                                {bankAccounts.map((account, index) => (
+                                    <div key={index} className="p-4 border dark:border-gray-700 rounded-md space-y-3 relative">
+                                        <h3 className="font-semibold text-gray-800 dark:text-gray-200">Cuenta {index + 1}</h3>
+                                        {bankAccounts.length > 0 && (
+                                            <button type="button" onClick={() => removeBankAccount(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-transform duration-200 hover:scale-125">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                                            </button>
+                                        )}
+                                        <div>
+                                            <label className={labelStyles}>Banco</label>
+                                            <input name="banco" value={account.banco} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: Banco de la Nación"/>
                                         </div>
-                                    )
-                                })}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={labelStyles}>Tipo de Cuenta</label>
+                                                {account.banco?.toLowerCase().includes('nación') ? (
+                                                    <input value="Cuenta Detracción" readOnly className={`${inputStyles} bg-gray-200 dark:bg-gray-800 cursor-not-allowed`} />
+                                                ) : (
+                                                    <select name="tipo_cuenta" value={account.tipo_cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
+                                                        <option value="Cta Ahorro">Cta Ahorro</option>
+                                                        <option value="Cta Corriente">Cta Corriente</option>
+                                                    </select>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label className={labelStyles}>Moneda</label>
+                                                <select name="moneda" value={account.moneda} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles}>
+                                                    <option value="Soles">Soles</option>
+                                                    <option value="Dólares">Dólares</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className={labelStyles}>Número de Cuenta</label>
+                                            <input name="cuenta" value={account.cuenta} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 00045115666"/>
+                                        </div>
+                                        <div>
+                                            <label className={labelStyles}>CCI</label>
+                                            <input name="cci" value={account.cci} onChange={(e) => handleBankAccountChange(index, e)} className={inputStyles} placeholder="Ej: 01804500004511566655"/>
+                                        </div>
+                                    </div>
+                                ))}
                                 {bankAccounts.length < 3 && (
                                     <Button type="button" onClick={addBankAccount} variant="secondary" className="w-full">
                                         + Agregar Cuenta Bancaria
                                     </Button>
                                 )}
+                            </div>
+                        </Card>
+                        <Card>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
+                                    <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Credenciales de Facturación (Apis Perú)</h2>
+                                    <Button onClick={handleFetchCompanies} loading={loadingCompanies} variant="secondary" className="text-sm px-4 py-1">
+                                        Ver Empresas
+                                    </Button>
+                                </div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    Estas credenciales se guardarán de forma segura y se usarán para emitir facturas y boletas electrónicas.
+                                </p>
+                                <div>
+                                    <label className={labelStyles}>Usuario o Email (Apis Perú)</label>
+                                    <input name="apisperu_user" value={formData.apisperu_user} onChange={handleChange} className={inputStyles} autoComplete="username" />
+                                </div>
+                                <div>
+                                    <label className={labelStyles}>Contraseña (Apis Perú)</label>
+                                    <input type="password" name="apisperu_password" value={formData.apisperu_password} onChange={handleChange} className={inputStyles} placeholder="Dejar en blanco para no cambiar" autoComplete="new-password" />
+                                </div>
                             </div>
                         </Card>
                         

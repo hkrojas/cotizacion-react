@@ -1,18 +1,17 @@
 # backend/main.py
-# CORREGIDO: Se ha solucionado un error de sintaxis en la función get_db.
-
-import requests, os, re, shutil
+import requests, os, re, shutil, json, base64
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from sqlalchemy import func # ¡ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ PRESENTE!
-from typing import List
+from typing import List, Any, Optional
 from jose import JWTError, jwt
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from datetime import datetime
 
-import crud, models, schemas, security, pdf_generator
+import crud, models, schemas, security, pdf_generator, facturacion_service
 from database import SessionLocal, engine
 from config import settings
 
@@ -20,6 +19,8 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+if not os.path.exists("logos"):
+    os.makedirs("logos")
 app.mount("/logos", StaticFiles(directory="logos"), name="logos")
 
 origins = ["http://localhost:5173", "http://127.0.0.1:5173", "https://cotizacion-react-bice.vercel.app"]
@@ -110,10 +111,31 @@ def delete_single_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), 
     if not crud.delete_cotizacion(db, cotizacion_id=cotizacion_id, owner_id=current_user.id): raise HTTPException(status_code=404, detail="Cotización no encontrada")
     return {"ok": True}
 
+@app.get("/cotizaciones/{cotizacion_id}/pdf")
+def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == current_user.id).first()
+    if not cotizacion: raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    pdf_buffer = pdf_generator.create_cotizacion_pdf(cotizacion, current_user)
+    filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitize_filename(cotizacion.nombre_cliente)}.pdf"
+    headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
+    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
+
 @app.put("/profile/", response_model=schemas.User)
 def update_profile(profile_data: schemas.ProfileUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    for key, value in profile_data.model_dump(exclude_unset=True).items(): setattr(current_user, key, value)
-    db.add(current_user); db.commit(); db.refresh(current_user)
+    update_data = profile_data.model_dump(exclude_unset=True)
+    
+    if 'apisperu_password' in update_data and update_data['apisperu_password']:
+        encrypted_pass = security.encrypt_data(update_data['apisperu_password'])
+        update_data['apisperu_password'] = encrypted_pass
+        update_data['apisperu_token'] = None
+        update_data['apisperu_token_expires'] = None
+
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
+        
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 @app.post("/profile/logo/", response_model=schemas.User)
@@ -121,7 +143,6 @@ def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db), cur
     if file.content_type not in ["image/jpeg", "image/png"]: raise HTTPException(status_code=400, detail="Tipo de archivo no permitido. Solo se aceptan JPG o PNG.")
     file_extension = os.path.splitext(file.filename)[1].lower()
     if file_extension not in [".jpg", ".jpeg", ".png"]: raise HTTPException(status_code=400, detail="Extensión de archivo no permitida.")
-    os.makedirs("logos", exist_ok=True)
     filename = f"user_{current_user.id}_logo{file_extension}"
     file_path = os.path.join("logos", filename)
     with open(file_path, "wb") as buffer: shutil.copyfileobj(file.file, buffer)
@@ -129,17 +150,94 @@ def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db), cur
     db.commit(); db.refresh(current_user)
     return current_user
 
-def sanitize_filename(name: str) -> str:
-    return re.sub(r'[\\/*?:"<>|]', "", name.replace(' ', '_'))
+# --- Endpoints de Facturación ---
+@app.get("/comprobantes/", response_model=List[schemas.Comprobante])
+def read_comprobantes(tipo_doc: Optional[str] = None, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return crud.get_comprobantes_by_owner(db=db, owner_id=current_user.id, tipo_doc=tipo_doc)
 
-@app.get("/cotizaciones/{cotizacion_id}/pdf")
-def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == current_user.id).first()
-    if not cotizacion: raise HTTPException(status_code=404, detail="Cotización no encontrada")
-    pdf_buffer = pdf_generator.create_pdf_buffer(cotizacion, current_user)
-    filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitize_filename(cotizacion.nombre_cliente)}.pdf"
-    headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
-    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
+@app.post("/cotizaciones/{cotizacion_id}/facturar", response_model=schemas.Comprobante)
+def facturar_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    cotizacion = crud.get_cotizacion_by_id(db, cotizacion_id=cotizacion_id, owner_id=current_user.id)
+    if not cotizacion:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    if cotizacion.comprobante:
+        raise HTTPException(status_code=400, detail="Esta cotización ya ha sido facturada.")
+
+    try:
+        token = facturacion_service.get_apisperu_token(db, current_user)
+        
+        tipo_doc = "01" if cotizacion.tipo_documento == "RUC" else "03"
+        serie = "F001" if tipo_doc == "01" else "B001"
+        correlativo = crud.get_next_correlativo(db, owner_id=current_user.id, serie=serie, tipo_doc=tipo_doc)
+
+        invoice_payload = facturacion_service.convert_cotizacion_to_invoice_payload(cotizacion, current_user, serie, correlativo)
+        api_response = facturacion_service.send_invoice(token, invoice_payload)
+        
+        sunat_response_data = api_response.get('sunatResponse', {})
+        comprobante_data = schemas.ComprobanteCreate(
+            tipo_doc=invoice_payload['tipoDoc'],
+            serie=invoice_payload['serie'],
+            correlativo=invoice_payload['correlativo'],
+            fecha_emision=datetime.fromisoformat(invoice_payload['fechaEmision']),
+            success=api_response.get('sunatResponse', {}).get('success', False),
+            sunat_response=sunat_response_data,
+            sunat_hash=api_response.get('hash'),
+            payload_enviado=invoice_payload
+        )
+        
+        nuevo_comprobante = crud.create_comprobante(db, comprobante=comprobante_data, cotizacion_id=cotizacion.id, owner_id=current_user.id)
+        
+        return nuevo_comprobante
+
+    except facturacion_service.FacturacionException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ocurrió un error inesperado: {e}")
+
+@app.get("/facturacion/empresas")
+def get_billing_companies(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    try:
+        token = facturacion_service.get_apisperu_token(db, current_user)
+        companies = facturacion_service.get_companies(token)
+        return companies
+    except facturacion_service.FacturacionException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ocurrió un error inesperado: {e}")
+
+class DocumentRequest(BaseModel):
+    comprobante_id: int
+
+@app.post("/facturacion/pdf")
+def get_invoice_pdf(request: DocumentRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    try:
+        comprobante = crud.get_comprobante_by_id(db, comprobante_id=request.comprobante_id, owner_id=current_user.id)
+        if not comprobante: raise HTTPException(status_code=404, detail="Comprobante no encontrado")
+        
+        pdf_buffer = pdf_generator.create_comprobante_pdf(comprobante, current_user)
+        return Response(content=pdf_buffer.getvalue(), media_type="application/pdf")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al generar el PDF: {e}")
+
+@app.post("/facturacion/xml")
+def get_invoice_xml(request: DocumentRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    raise HTTPException(status_code=501, detail="Descarga de XML no implementada.")
+
+@app.post("/facturacion/cdr")
+def get_invoice_cdr(request: DocumentRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    try:
+        comprobante = crud.get_comprobante_by_id(db, comprobante_id=request.comprobante_id, owner_id=current_user.id)
+        if not comprobante or not comprobante.sunat_response: 
+            raise HTTPException(status_code=404, detail="Factura o respuesta SUNAT no encontrada")
+
+        cdr_zip_b64 = comprobante.sunat_response.get('cdrZip')
+        if not cdr_zip_b64:
+            raise HTTPException(status_code=404, detail="CDR no disponible en la respuesta.")
+        
+        cdr_content = base64.b64decode(cdr_zip_b64)
+        return Response(content=cdr_content, media_type="application/zip")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener el CDR: {e}")
 
 # --- Endpoints de Administrador ---
 @app.get("/admin/stats/", response_model=schemas.AdminDashboardStats)
@@ -163,22 +261,14 @@ def get_user_details_for_admin(user_id: int, db: Session = Depends(get_db), admi
 def get_user_cotizaciones_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     return crud.get_cotizaciones_by_owner(db, owner_id=user_id)
 
-# ===================================================================
-# ESTA ES LA FUNCIÓN CORREGIDA
-# ===================================================================
 @app.put("/admin/users/{user_id}/status", response_model=schemas.AdminUserView)
 def update_user_status_for_admin(user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     user = crud.update_user_status(db, user_id=user_id, is_active=status_update.is_active, deactivation_reason=status_update.deactivation_reason)
-    if not user: 
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Se calcula y añade el conteo de cotizaciones que faltaba
+    if not user: raise HTTPException(status_code=404, detail="User not found")
     cotizaciones_count = db.query(func.count(models.Cotizacion.id)).filter(models.Cotizacion.owner_id == user_id).scalar()
     user.cotizaciones_count = cotizaciones_count
-    
     user.is_admin = (user.email == settings.ADMIN_EMAIL)
     return user
-# ===================================================================
 
 @app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user_for_admin(user_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
@@ -194,7 +284,7 @@ def get_admin_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), 
     if not cotizacion: raise HTTPException(status_code=404, detail="Cotización no encontrada")
     quote_owner = cotizacion.owner
     if not quote_owner: raise HTTPException(status_code=404, detail="No se encontró el dueño de la cotización")
-    pdf_buffer = pdf_generator.create_pdf_buffer(cotizacion, quote_owner)
+    pdf_buffer = pdf_generator.create_cotizacion_pdf(cotizacion, quote_owner)
     filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitize_filename(cotizacion.nombre_cliente)}.pdf"
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)

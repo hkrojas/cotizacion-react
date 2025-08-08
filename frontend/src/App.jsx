@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 import React, { useContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext } from './context/AuthContext';
@@ -7,10 +8,10 @@ import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
-
-// --- IMPORTS MODIFICADOS PARA ADMIN ---
 import AdminProtectedRoute from './components/AdminProtectedRoute';
-import AdminPage from './pages/AdminPage'; // AdminPage ahora es el layout con rutas anidadas
+import AdminPage from './pages/AdminPage';
+import ComprobantesPage from './pages/ComprobantesPage';
+import CotizacionesPage from './pages/CotizacionesPage'; // Nueva página
 
 function App() {
   const { loading } = useContext(AuthContext);
@@ -33,6 +34,22 @@ function App() {
         } 
       />
       <Route 
+        path="/comprobantes" 
+        element={
+          <ProtectedRoute>
+            <ComprobantesPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cotizaciones" 
+        element={
+          <ProtectedRoute>
+            <CotizacionesPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/profile" 
         element={
           <ProtectedRoute>
@@ -40,9 +57,8 @@ function App() {
           </ProtectedRoute>
         } 
       />
-      {/* --- RUTA DE ADMIN MODIFICADA PARA ACEPTAR SUB-RUTAS --- */}
       <Route 
-        path="/admin/*" // El '/*' es clave para las rutas anidadas
+        path="/admin/*"
         element={
           <AdminProtectedRoute>
             <AdminPage />

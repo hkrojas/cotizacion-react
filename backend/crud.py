@@ -1,16 +1,13 @@
 # backend/crud.py
-# CORREGIDO: Se ha solucionado un error de variable no definida.
-
-from sqlalchemy.orm import Session, noload, subqueryload
-from sqlalchemy import func, case
+from sqlalchemy.orm import Session, noload, joinedload
+from sqlalchemy import func
 from datetime import datetime, timedelta
 import models, schemas, security
+from typing import Optional
 
-# --- Funciones de Usuario (sin cambios) ---
+# --- Funciones de Usuario ---
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User)\
-        .options(noload(models.User.cotizaciones))\
-        .filter(models.User.email == email).first()
+    return db.query(models.User).options(noload(models.User.cotizaciones)).filter(models.User.email == email).first()
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.pwd_context.hash(user.password)
@@ -26,7 +23,7 @@ def authenticate_user(db: Session, email: str, password: str):
     if not security.verify_password(password, user.hashed_password): return None
     return user
 
-# --- Funciones de Cotización (sin cambios) ---
+# --- Funciones de Cotización ---
 def get_next_cotizacion_number(db: Session):
     last_cotizacion = db.query(models.Cotizacion).order_by(models.Cotizacion.id.desc()).first()
     if not last_cotizacion or not last_cotizacion.numero_cotizacion: return "0001"
@@ -44,10 +41,13 @@ def create_cotizacion(db: Session, cotizacion: schemas.CotizacionCreate, user_id
     return db_cotizacion
 
 def get_cotizaciones_by_owner(db: Session, owner_id: int):
-    return db.query(models.Cotizacion).options(noload(models.Cotizacion.productos)).filter(models.Cotizacion.owner_id == owner_id).order_by(models.Cotizacion.id.desc()).all()
+    return db.query(models.Cotizacion)\
+        .options(joinedload(models.Cotizacion.comprobante), noload(models.Cotizacion.productos))\
+        .filter(models.Cotizacion.owner_id == owner_id)\
+        .order_by(models.Cotizacion.id.desc()).all()
 
 def get_cotizacion_by_id(db: Session, cotizacion_id: int, owner_id: int):
-    return db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == owner_id).first()
+    return db.query(models.Cotizacion).options(joinedload(models.Cotizacion.productos)).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == owner_id).first()
 
 def update_cotizacion(db: Session, cotizacion_id: int, cotizacion_data: schemas.CotizacionCreate, owner_id: int):
     db_cotizacion = get_cotizacion_by_id(db, cotizacion_id=cotizacion_id, owner_id=owner_id)
@@ -65,6 +65,32 @@ def delete_cotizacion(db: Session, cotizacion_id: int, owner_id: int):
     if not db_cotizacion: return False
     db.delete(db_cotizacion); db.commit()
     return True
+
+# --- Funciones para Comprobante ---
+def create_comprobante(db: Session, comprobante: schemas.ComprobanteCreate, owner_id: int, cotizacion_id: Optional[int] = None):
+    db_comprobante = models.Comprobante(**comprobante.model_dump(), owner_id=owner_id, cotizacion_id=cotizacion_id)
+    db.add(db_comprobante)
+    db.commit()
+    db.refresh(db_comprobante)
+    return db_comprobante
+
+def get_comprobantes_by_owner(db: Session, owner_id: int, tipo_doc: Optional[str] = None):
+    query = db.query(models.Comprobante).filter(models.Comprobante.owner_id == owner_id)
+    if tipo_doc:
+        query = query.filter(models.Comprobante.tipo_doc == tipo_doc)
+    return query.order_by(models.Comprobante.id.desc()).all()
+
+def get_comprobante_by_id(db: Session, comprobante_id: int, owner_id: int):
+    return db.query(models.Comprobante).options(joinedload(models.Comprobante.cotizacion).joinedload(models.Cotizacion.productos)).filter(models.Comprobante.id == comprobante_id, models.Comprobante.owner_id == owner_id).first()
+
+def get_next_correlativo(db: Session, owner_id: int, serie: str, tipo_doc: str) -> str:
+    last_comprobante = db.query(models.Comprobante)\
+        .filter(models.Comprobante.owner_id == owner_id, models.Comprobante.serie == serie, models.Comprobante.tipo_doc == tipo_doc)\
+        .order_by(models.Comprobante.correlativo.desc())\
+        .first()
+    if not last_comprobante or not last_comprobante.correlativo:
+        return "1"
+    return str(int(last_comprobante.correlativo) + 1)
 
 # --- Funciones de Administrador ---
 def get_admin_dashboard_stats(db: Session):
@@ -101,8 +127,6 @@ def get_all_users(db: Session):
 def get_user_by_id_for_admin(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
-# --- FUNCIÓN CORREGIDA ---
-# Se cambió la variable 'reason' por 'deactivation_reason' para que coincida con el parámetro de la función.
 def update_user_status(db: Session, user_id: int, is_active: bool, deactivation_reason: str = None):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:

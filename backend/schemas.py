@@ -1,11 +1,9 @@
 # backend/schemas.py
-# MODIFICADO PARA AÑADIR NUEVOS ESQUEMAS Y CAMPOS PARA EL ADMIN
-
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
-# --- Esquemas de Producto (sin cambios) ---
+# --- Esquemas de Producto ---
 class ProductoBase(BaseModel):
     descripcion: str = Field(..., min_length=1)
     unidades: int = Field(..., gt=0)
@@ -17,7 +15,31 @@ class Producto(ProductoBase):
     cotizacion_id: int
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquemas de Cotización (sin cambios) ---
+# --- Esquemas de Comprobante (Reemplaza a Factura) ---
+class ComprobanteBase(BaseModel):
+    success: bool
+    sunat_response: Optional[dict] = None
+    sunat_hash: Optional[str] = None
+    payload_enviado: Optional[dict] = None
+
+class ComprobanteCreate(ComprobanteBase):
+    tipo_doc: str
+    serie: str
+    correlativo: str
+    fecha_emision: datetime
+
+class Comprobante(ComprobanteBase):
+    id: int
+    cotizacion_id: Optional[int] = None
+    owner_id: int
+    tipo_doc: str
+    serie: str
+    correlativo: str
+    fecha_emision: datetime
+    fecha_creacion: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Esquemas de Cotización ---
 class CotizacionBase(BaseModel):
     nombre_cliente: str = Field(..., min_length=1)
     direccion_cliente: str
@@ -31,6 +53,7 @@ class CotizacionInList(CotizacionBase):
     owner_id: int
     numero_cotizacion: str
     fecha_creacion: datetime
+    comprobante: Optional[Comprobante] = None
     model_config = ConfigDict(from_attributes=True)
 
 class CotizacionCreate(CotizacionBase):
@@ -42,9 +65,10 @@ class Cotizacion(CotizacionBase):
     numero_cotizacion: str
     fecha_creacion: datetime
     productos: List[Producto] = []
+    comprobante: Optional[Comprobante] = None
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquema de Cuenta Bancaria (sin cambios) ---
+# --- Esquema de Cuenta Bancaria ---
 class BankAccount(BaseModel):
     banco: str
     tipo_cuenta: Optional[str] = None
@@ -52,7 +76,7 @@ class BankAccount(BaseModel):
     cuenta: str
     cci: str
 
-# --- Esquema de Perfil (sin cambios) ---
+# --- Esquema de Perfil ---
 class ProfileUpdate(BaseModel):
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -63,6 +87,8 @@ class ProfileUpdate(BaseModel):
     pdf_note_1_color: Optional[str] = None
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
+    apisperu_user: Optional[str] = None
+    apisperu_password: Optional[str] = None
 
 # --- Esquemas de Usuario ---
 class UserBase(BaseModel):
@@ -74,7 +100,7 @@ class User(UserBase):
     id: int
     is_active: bool
     is_admin: bool
-    creation_date: datetime # <-- CAMPO AÑADIDO
+    creation_date: datetime
     deactivation_reason: Optional[str] = None
     business_name: Optional[str] = None
     business_address: Optional[str] = None
@@ -87,17 +113,16 @@ class User(UserBase):
     pdf_note_2: Optional[str] = None
     bank_accounts: Optional[List[BankAccount]] = None
     cotizaciones: List[CotizacionInList] = []
+    apisperu_user: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # --- Esquemas de Admin ---
-# --- NUEVO ESQUEMA PARA ESTADÍSTICAS ---
 class AdminDashboardStats(BaseModel):
     total_users: int
     active_users: int
     total_cotizaciones: int
     new_users_last_30_days: int
 
-# --- ESQUEMA MODIFICADO PARA LA VISTA DE USUARIOS ---
 class AdminUserView(BaseModel):
     id: int
     email: str
@@ -130,7 +155,7 @@ class AdminUserDetailView(UserBase):
     bank_accounts: Optional[List[BankAccount]] = None
     model_config = ConfigDict(from_attributes=True)
 
-# --- Esquemas de Token y DocumentoConsulta (sin cambios) ---
+# --- Esquemas de Token y DocumentoConsulta ---
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -139,3 +164,10 @@ class TokenData(BaseModel):
 class DocumentoConsulta(BaseModel):
     tipo_documento: str
     numero_documento: str
+
+# --- NUEVO ESQUEMA PARA CREAR COMPROBANTE DIRECTAMENTE ---
+class ComprobanteDirectoCreate(BaseModel):
+    cliente: dict
+    productos: List[ProductoCreate]
+    moneda: str
+    tipo_doc: str # 01 o 03
