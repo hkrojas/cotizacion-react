@@ -11,7 +11,8 @@ import LoadingSpinner from './components/LoadingSpinner';
 import AdminProtectedRoute from './components/AdminProtectedRoute';
 import AdminPage from './pages/AdminPage';
 import ComprobantesPage from './pages/ComprobantesPage';
-import CotizacionesPage from './pages/CotizacionesPage'; // Nueva página
+import CotizacionesPage from './pages/CotizacionesPage';
+import GuiasPage from './pages/GuiasPage'; // <-- 1. IMPORTAR LA NUEVA PÁGINA
 
 function App() {
   const { loading } = useContext(AuthContext);
@@ -46,6 +47,15 @@ function App() {
         element={
           <ProtectedRoute>
             <CotizacionesPage />
+          </ProtectedRoute>
+        } 
+      />
+      {/* --- 2. AÑADIR LA NUEVA RUTA PARA GUÍAS --- */}
+      <Route 
+        path="/guias" 
+        element={
+          <ProtectedRoute>
+            <GuiasPage />
           </ProtectedRoute>
         } 
       />

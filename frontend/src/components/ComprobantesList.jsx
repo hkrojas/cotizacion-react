@@ -98,7 +98,7 @@ const ComprobanteDetailsModal = ({ comprobante, onClose, token }) => {
     );
 };
 
-const ComprobantesList = ({ refreshTrigger }) => {
+const ComprobantesList = ({ tipoDoc, refreshTrigger }) => {
     const [comprobantes, setComprobantes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -112,7 +112,14 @@ const ComprobantesList = ({ refreshTrigger }) => {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`${API_URL}/comprobantes/`, {
+                // --- CORRECCIÓN CLAVE ---
+                // Se construye la URL con el parámetro de filtro `tipo_doc`
+                const url = new URL(`${API_URL}/comprobantes/`);
+                if (tipoDoc) {
+                    url.searchParams.append('tipo_doc', tipoDoc);
+                }
+
+                const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) throw new Error('No se pudieron cargar los comprobantes.');
@@ -122,7 +129,7 @@ const ComprobantesList = ({ refreshTrigger }) => {
             finally { setLoading(false); }
         };
         fetchComprobantes();
-    }, [token, refreshTrigger]);
+    }, [token, tipoDoc, refreshTrigger]); // Se añade `tipoDoc` a las dependencias del efecto
 
     const getCurrencySymbol = (moneda) => (moneda === 'PEN' ? 'S/' : '$');
     const formatDate = (dateString) => new Date(dateString).toLocaleDateString('es-ES');
@@ -150,7 +157,7 @@ const ComprobantesList = ({ refreshTrigger }) => {
                 
                 {filteredComprobantes.length === 0 ? (
                     <div className="text-center text-gray-500 py-12">
-                        <p>No se han emitido comprobantes todavía.</p>
+                        <p>No se han emitido comprobantes de este tipo.</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto rounded-lg shadow-md border dark:border-gray-700">

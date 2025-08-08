@@ -28,6 +28,11 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# --- FUNCIÓN AÑADIDA PARA SOLUCIONAR EL ERROR ---
+def sanitize_filename(name: str) -> str:
+    """Elimina caracteres no válidos de un string para usarlo como nombre de archivo."""
+    return re.sub(r'[\\/*?:"<>|]', "", name.replace(' ', '_'))
+
 def get_db():
     db = SessionLocal()
     try:

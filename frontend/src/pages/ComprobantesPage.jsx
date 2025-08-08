@@ -1,18 +1,25 @@
 // frontend/src/pages/ComprobantesPage.jsx
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom'; // Importar useLocation
 import PageHeader from '../components/PageHeader';
 import Card from '../components/Card';
 import ComprobantesList from '../components/ComprobantesList';
 
 const ComprobantesPage = () => {
-    const [activeTab, setActiveTab] = useState('facturas'); // Pestaña inicial: Facturas
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-    const handleCreationSuccess = () => {
-        setRefreshTrigger(prev => prev + 1);
-        setActiveTab('facturas'); // Volver a la lista de facturas después de crear
+    // --- LÓGICA PARA LEER LA PESTAÑA DESDE LA URL ---
+    const location = useLocation();
+    const getTabFromQuery = () => {
+        const params = new URLSearchParams(location.search);
+        return params.get('tab') || 'facturas'; // 'facturas' por defecto
     };
+
+    const [activeTab, setActiveTab] = useState(getTabFromQuery);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    
+    // Efecto para sincronizar el estado de la pestaña si la URL cambia
+    useEffect(() => {
+        setActiveTab(getTabFromQuery());
+    }, [location.search]);
 
     const tabStyle = "px-6 py-3 font-semibold text-base border-b-2 transition-colors duration-300 focus:outline-none";
     const activeTabStyle = "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400";
