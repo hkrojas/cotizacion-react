@@ -1,8 +1,9 @@
 # backend/crud.py
+
 from sqlalchemy.orm import Session, noload, joinedload
 from sqlalchemy import func
 from datetime import datetime, timedelta
-import models, schemas, security
+import models, schemas, security  # <-- LÍNEA CORREGIDA: Se añadió 'import security'
 from typing import Optional
 
 # --- Funciones de Usuario ---
@@ -91,6 +92,38 @@ def get_next_correlativo(db: Session, owner_id: int, serie: str, tipo_doc: str) 
     if not last_comprobante or not last_comprobante.correlativo:
         return "1"
     return str(int(last_comprobante.correlativo) + 1)
+
+# --- NUEVAS FUNCIONES PARA GUÍA DE REMISIÓN ---
+
+def get_next_guia_correlativo(db: Session, owner_id: int, serie: str) -> str:
+    """Obtiene el siguiente número correlativo para una serie de guía de remisión."""
+    last_guia = db.query(models.GuiaRemision)\
+        .filter(models.GuiaRemision.owner_id == owner_id, models.GuiaRemision.serie == serie)\
+        .order_by(models.GuiaRemision.correlativo.desc())\
+        .first()
+    if not last_guia or not last_guia.correlativo:
+        return "1"
+    return str(int(last_guia.correlativo) + 1)
+
+def create_guia_remision(db: Session, guia_data: schemas.GuiaRemisionDB, owner_id: int, serie: str, correlativo: str, fecha_emision: datetime):
+    """Crea un nuevo registro de Guía de Remisión en la base de datos."""
+    db_guia = models.GuiaRemision(
+        **guia_data.model_dump(),
+        owner_id=owner_id,
+        serie=serie,
+        correlativo=correlativo,
+        fecha_emision=fecha_emision
+    )
+    db.add(db_guia)
+    db.commit()
+    db.refresh(db_guia)
+    return db_guia
+
+def get_guias_remision_by_owner(db: Session, owner_id: int):
+    """Obtiene todas las guías de remisión de un usuario."""
+    return db.query(models.GuiaRemision)\
+        .filter(models.GuiaRemision.owner_id == owner_id)\
+        .order_by(models.GuiaRemision.id.desc()).all()
 
 # --- Funciones de Administrador ---
 def get_admin_dashboard_stats(db: Session):

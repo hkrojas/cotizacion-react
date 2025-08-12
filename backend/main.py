@@ -1,4 +1,5 @@
 # backend/main.py
+
 import requests, os, re, shutil, json, base64
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -12,9 +13,11 @@ from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import func
 
-import crud, models, schemas, security, pdf_generator, facturacion_service
+import crud, models, schemas, security, facturacion_service
 from database import SessionLocal, engine
 from config import settings
+# La siguiente línea asume que tendrás un pdf_generator para guías también
+# import pdf_generator 
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -30,7 +33,6 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def sanitize_filename(name: str) -> str:
-    """Elimina caracteres no válidos de un string para usarlo como nombre de archivo."""
     return re.sub(r'[\\/*?:"<>|]', "", name.replace(' ', '_'))
 
 def get_db():
@@ -118,9 +120,10 @@ def delete_single_cotizacion(cotizacion_id: int, db: Session = Depends(get_db), 
 
 @app.get("/cotizaciones/{cotizacion_id}/pdf")
 def get_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    from pdf_generator import create_cotizacion_pdf
     cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id, models.Cotizacion.owner_id == current_user.id).first()
     if not cotizacion: raise HTTPException(status_code=404, detail="Cotización no encontrada")
-    pdf_buffer = pdf_generator.create_cotizacion_pdf(cotizacion, current_user)
+    pdf_buffer = create_cotizacion_pdf(cotizacion, current_user)
     filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitize_filename(cotizacion.nombre_cliente)}.pdf"
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
@@ -215,11 +218,12 @@ class DocumentRequest(BaseModel):
 
 @app.post("/facturacion/pdf")
 def get_invoice_pdf(request: DocumentRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    from pdf_generator import create_comprobante_pdf
     try:
         comprobante = crud.get_comprobante_by_id(db, comprobante_id=request.comprobante_id, owner_id=current_user.id)
         if not comprobante: raise HTTPException(status_code=404, detail="Comprobante no encontrado")
         
-        pdf_buffer = pdf_generator.create_comprobante_pdf(comprobante, current_user)
+        pdf_buffer = create_comprobante_pdf(comprobante, current_user)
         return Response(content=pdf_buffer.getvalue(), media_type="application/pdf")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al generar el PDF: {e}")
@@ -244,7 +248,67 @@ def get_invoice_cdr(request: DocumentRequest, db: Session = Depends(get_db), cur
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener el CDR: {e}")
 
-# --- Endpoints de Administrador ---
+# --- NUEVOS ENDPOINTS PARA GUÍAS DE REMISIÓN ---
+
+@app.post("/guias-remision/", response_model=schemas.GuiaRemision)
+def create_new_guia_remision(guia_data: schemas.GuiaRemisionCreateAPI, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Endpoint para crear una nueva Guía de Remisión.
+    """
+    try:
+        # 1. Obtener token de Apis Perú
+        token = facturacion_service.get_apisperu_token(db, current_user)
+        
+        # 2. Determinar serie y correlativo
+        # La serie para guías de remisión usualmente empieza con 'T'
+        serie = "T001" 
+        correlativo = crud.get_next_guia_correlativo(db, owner_id=current_user.id, serie=serie)
+
+        # 3. Convertir datos al payload de la API
+        guia_payload = facturacion_service.convert_data_to_guia_payload(guia_data, current_user, serie, correlativo)
+        
+        # 4. Enviar a la API de Apis Perú
+        api_response = facturacion_service.send_guia_remision(token, guia_payload)
+        
+        # 5. Preparar datos para guardar en la BD
+        sunat_response_data = api_response.get('sunatResponse', {})
+        guia_db_data = schemas.GuiaRemisionDB(
+            success=api_response.get('sunatResponse', {}).get('success', False),
+            sunat_response=sunat_response_data,
+            sunat_hash=api_response.get('hash'),
+            payload_enviado=guia_payload
+        )
+        
+        # 6. Guardar en la base de datos
+        nueva_guia = crud.create_guia_remision(
+            db=db, 
+            guia_data=guia_db_data, 
+            owner_id=current_user.id,
+            serie=serie,
+            correlativo=correlativo,
+            fecha_emision=datetime.fromisoformat(guia_payload['fechaEmision'])
+        )
+        
+        return nueva_guia
+
+    except facturacion_service.FacturacionException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        # Captura de errores inesperados para un mejor diagnóstico
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ocurrió un error inesperado en el servidor: {e}")
+
+
+@app.get("/guias-remision/", response_model=List[schemas.GuiaRemision])
+def read_guias_remision(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Endpoint para obtener la lista de Guías de Remisión del usuario actual.
+    """
+    return crud.get_guias_remision_by_owner(db=db, owner_id=current_user.id)
+
+
+# --- Endpoints de Administrador (sin cambios) ---
 @app.get("/admin/stats/", response_model=schemas.AdminDashboardStats)
 def get_admin_stats(db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     return crud.get_admin_dashboard_stats(db)
@@ -285,11 +349,12 @@ def delete_user_for_admin(user_id: int, db: Session = Depends(get_db), admin_use
 
 @app.get("/admin/cotizaciones/{cotizacion_id}/pdf")
 def get_admin_cotizacion_pdf(cotizacion_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
+    from pdf_generator import create_cotizacion_pdf
     cotizacion = db.query(models.Cotizacion).filter(models.Cotizacion.id == cotizacion_id).first()
     if not cotizacion: raise HTTPException(status_code=404, detail="Cotización no encontrada")
     quote_owner = cotizacion.owner
     if not quote_owner: raise HTTPException(status_code=404, detail="No se encontró el dueño de la cotización")
-    pdf_buffer = pdf_generator.create_cotizacion_pdf(cotizacion, quote_owner)
+    pdf_buffer = create_cotizacion_pdf(cotizacion, quote_owner)
     filename = f"Cotizacion_{cotizacion.numero_cotizacion}_{sanitize_filename(cotizacion.nombre_cliente)}.pdf"
     headers = {"Content-Disposition": f"inline; filename=\"{filename}\""}
     return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
