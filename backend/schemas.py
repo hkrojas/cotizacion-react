@@ -166,19 +166,19 @@ class DestinatarioGuia(BaseModel):
     rznSocial: str
 
 class DireccionGuia(BaseModel):
-    ubigeo: str
+    # --- CORRECCIÓN ---
+    # La API espera 'ubigueo' en lugar de 'ubigeo'
+    ubigueo: str
     direccion: str
 
-# --- INICIO DE LA CORRECCIÓN ---
-# Añadimos el campo `tipo` que es requerido por la API para el conductor.
 class ConductorGuia(BaseModel):
+    # Campo obligatorio que faltaba
     tipo: str = "Principal"
     tipoDoc: str
     numDoc: str
     nombres: str
     apellidos: str
     licencia: Optional[str] = None
-# --- FIN DE LA CORRECCIÓN ---
 
 class TransportistaGuia(BaseModel):
     tipoDoc: Optional[str] = None

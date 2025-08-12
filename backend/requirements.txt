@@ -2,7 +2,8 @@ fastapi
 uvicorn[standard]
 sqlalchemy
 python-dotenv
-passlib[bcrypt]
+passlib==1.7.4
+bcrypt==3.2.0
 python-jose[cryptography]
 requests
 reportlab
@@ -10,9 +11,8 @@ python-multipart
 fastapi-cors
 psycopg2-binary
 pydantic[email]
-pydantic-settings # <-- AÑADIMOS LA LIBRERÍA QUE FALTABA
+pydantic-settings
 python-dateutil
-bcrypt==3.2.2
 cryptography
 num2words
 qrcode[pil]

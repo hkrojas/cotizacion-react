@@ -62,7 +62,6 @@ def get_companies(token: str) -> list:
         raise FacturacionException(f"Error de conexión al obtener empresas: {e}")
 
 def convert_cotizacion_to_invoice_payload(cotizacion: models.Cotizacion, user: models.User, serie: str, correlativo: str) -> dict:
-    # ... (Esta función no cambia)
     if not all([user.business_ruc, user.business_name, user.business_address]):
         raise FacturacionException("Datos de la empresa (RUC, Razón Social, Dirección) incompletos en el perfil.")
     if cotizacion.nro_documento == user.business_ruc:
@@ -76,7 +75,7 @@ def convert_cotizacion_to_invoice_payload(cotizacion: models.Cotizacion, user: m
         igv = mto_base_igv * 0.18
         precio_unitario_con_igv = valor_unitario * 1.18
         details.append({
-            "codProducto": f"P{prod.id}", "unidad": "NIU", "descripcion": prod.descripcion, "cantidad": prod.unidades,
+            "codProducto": f"P{prod.id}", "unidad": "NIU", "descripcion": prod.descripcion, "cantidad": float(prod.unidades),
             "mtoValorUnitario": round(valor_unitario, 2), "mtoValorVenta": round(prod.total, 2), "mtoBaseIgv": round(mto_base_igv, 2),
             "porcentajeIgv": 18, "igv": round(igv, 2), "tipAfeIgv": 10, "totalImpuestos": round(igv, 2),
             "mtoPrecioUnitario": round(precio_unitario_con_igv, 5)
@@ -116,7 +115,6 @@ def convert_cotizacion_to_invoice_payload(cotizacion: models.Cotizacion, user: m
     return payload
 
 def send_invoice(token: str, payload: dict) -> dict:
-    # ... (Esta función no cambia)
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     try:
         response = requests.post(f"{settings.APISPERU_URL}/invoice/send", headers=headers, json=payload)
@@ -132,7 +130,6 @@ def send_invoice(token: str, payload: dict) -> dict:
         raise FacturacionException(f"Error de conexión al enviar la factura: {e}")
 
 def get_document_file(token: str, comprobante: models.Comprobante, user: models.User, doc_type: str) -> bytes:
-    # ... (Esta función no cambia)
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     if doc_type == 'cdr':
         if not comprobante.sunat_response: raise FacturacionException("No hay datos de factura para obtener el CDR.")
@@ -150,8 +147,6 @@ def get_document_file(token: str, comprobante: models.Comprobante, user: models.
     except Exception as e:
         raise FacturacionException(f"Error al procesar los datos para la descarga: {e}")
 
-# --- FUNCIONES PARA GUÍA DE REMISIÓN ---
-
 def convert_data_to_guia_payload(guia_data: schemas.GuiaRemisionCreateAPI, user: models.User, serie: str, correlativo: str) -> dict:
     if not all([user.business_ruc, user.business_name, user.business_address]):
         raise FacturacionException("Datos de la empresa (RUC, Razón Social, Dirección) incompletos en el perfil.")
@@ -161,42 +156,55 @@ def convert_data_to_guia_payload(guia_data: schemas.GuiaRemisionCreateAPI, user:
     fecha_emision_formateada = now_in_peru.strftime('%Y-%m-%dT%H:%M:%S%z')
     fecha_emision_final = fecha_emision_formateada[:-2] + ':' + fecha_emision_formateada[-2:]
 
+    bienes_corregidos = []
+    for bien in guia_data.bienes:
+        bien_dict = bien.model_dump()
+        bien_dict['cantidad'] = float(bien_dict['cantidad'])
+        bienes_corregidos.append(bien_dict)
+
+    company_data = {
+        "ruc": user.business_ruc,
+        "razonSocial": user.business_name,
+        "nombreComercial": user.business_name,
+        "address": {
+            "direccion": user.business_address,
+            "provincia": "LIMA",
+            "departamento": "LIMA",
+            "distrito": "LIMA",
+            "ubigueo": "150101"
+        }
+    }
+    
     payload = {
+        "version": "2022",
         "tipoDoc": "09",
         "serie": serie,
         "correlativo": correlativo,
         "fechaEmision": fecha_emision_final,
-        "company": {
-            "ruc": user.business_ruc,
-            "razonSocial": user.business_name,
-            "nombreComercial": user.business_name
-        },
+        "company": company_data,
         "destinatario": guia_data.destinatario.model_dump(),
         "envio": {
             "modTraslado": guia_data.modTraslado,
             "codTraslado": guia_data.codTraslado,
             "desTraslado": "VENTA",
             "fecTraslado": guia_data.fecTraslado.isoformat(),
-            "pesoTotal": guia_data.pesoTotal,
+            "pesoTotal": float(guia_data.pesoTotal),
             "undPesoTotal": "KGM",
             "partida": guia_data.partida.model_dump(),
             "llegada": guia_data.llegada.model_dump()
         },
-        # --- INICIO DE LA CORRECCIÓN ---
-        # El nombre correcto del campo para la API es "details", no "bienes".
-        "details": [bien.model_dump() for bien in guia_data.bienes]
-        # --- FIN DE LA CORRECCIÓN ---
+        "details": bienes_corregidos
     }
 
-    if guia_data.modTraslado == "01":
+    if guia_data.modTraslado == "01": # Transporte Público
         if guia_data.transportista:
             payload["envio"]["transportista"] = guia_data.transportista.model_dump()
-    elif guia_data.modTraslado == "02":
-        if guia_data.transportista and guia_data.transportista.placa:
-            payload["envio"]["vehiculo"] = {"placa": guia_data.transportista.placa}
+    elif guia_data.modTraslado == "02": # Transporte Privado
         if guia_data.conductor:
             payload["envio"]["choferes"] = [guia_data.conductor.model_dump()]
-
+        if guia_data.transportista and guia_data.transportista.placa:
+            payload["envio"]["vehiculo"] = {"placa": guia_data.transportista.placa}
+    
     return payload
 
 def send_guia_remision(token: str, payload: dict) -> dict:
@@ -207,13 +215,14 @@ def send_guia_remision(token: str, payload: dict) -> dict:
         if response.status_code >= 400:
             try:
                 error_data = response.json()
+                print("Error detallado de la API:", json.dumps(error_data, indent=2))
                 if isinstance(error_data, list):
                     error_message = "; ".join([f"{err.get('field')}: {err.get('message')}" for err in error_data])
                 else:
                     error_message = error_data.get('message') or error_data.get('error') or str(error_data)
             except json.JSONDecodeError:
                 error_message = response.text
-            raise FacturacionException(f"Error {response.status_code} de la API: {error_message}")
+            raise FacturacionException(f"Error de la API: {error_message}")
         
         return response.json()
     except requests.exceptions.RequestException as e:

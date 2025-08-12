@@ -97,6 +97,7 @@ const GuiasPage = () => {
     const [loadingDestinatario, setLoadingDestinatario] = useState(false);
     const [loadingConductor, setLoadingConductor] = useState(false);
 
+    // --- INICIO DE LA CORRECCIÓN: Se cambia 'ubigeo' por 'ubigueo' ---
     const [formData, setFormData] = useState({
         destinatario: { tipoDoc: '6', numDoc: '', rznSocial: '' },
         codTraslado: '01',
@@ -109,6 +110,7 @@ const GuiasPage = () => {
         conductor: { tipo: 'Principal', tipoDoc: '1', numDoc: '', nombres: '', apellidos: '', licencia: '' },
         bienes: [{ descripcion: '', cantidad: 1, unidad: 'NIU' }]
     });
+    // --- FIN DE LA CORRECCIÓN ---
 
     useEffect(() => {
         if (user?.business_address) {
@@ -272,10 +274,12 @@ const GuiasPage = () => {
 
                                 <section>
                                     <h3 className="text-lg font-semibold border-b pb-2 mb-4 dark:text-gray-200 dark:border-gray-600">Direcciones</h3>
+                                    {/* --- INICIO DE LA CORRECCIÓN: Se cambia 'ubigeo' por 'ubigueo' en los inputs --- */}
                                     <div className="grid md:grid-cols-2 gap-6">
-                                        <div><h4 className="font-medium mb-2 dark:text-gray-200">Punto de Partida</h4><input placeholder="Ubigeo Partida" value={formData.partida.ubigeo} onChange={e => handleChange('partida', 'ubigeo', e.target.value)} className={inputStyles} required /><input placeholder="Dirección Partida" value={formData.partida.direccion} onChange={e => handleChange('partida', 'direccion', e.target.value)} className={inputStyles} required /></div>
-                                        <div><h4 className="font-medium mb-2 dark:text-gray-200">Punto de Llegada</h4><input placeholder="Ubigeo Llegada" value={formData.llegada.ubigeo} onChange={e => handleChange('llegada', 'ubigeo', e.target.value)} className={inputStyles} required /><input placeholder="Dirección Llegada" value={formData.llegada.direccion} onChange={e => handleChange('llegada', 'direccion', e.target.value)} className={inputStyles} required /></div>
+                                        <div><h4 className="font-medium mb-2 dark:text-gray-200">Punto de Partida</h4><input placeholder="Ubigeo Partida" value={formData.partida.ubigueo} onChange={e => handleChange('partida', 'ubigueo', e.target.value)} className={inputStyles} required /><input placeholder="Dirección Partida" value={formData.partida.direccion} onChange={e => handleChange('partida', 'direccion', e.target.value)} className={inputStyles} required /></div>
+                                        <div><h4 className="font-medium mb-2 dark:text-gray-200">Punto de Llegada</h4><input placeholder="Ubigeo Llegada" value={formData.llegada.ubigueo} onChange={e => handleChange('llegada', 'ubigueo', e.target.value)} className={inputStyles} required /><input placeholder="Dirección Llegada" value={formData.llegada.direccion} onChange={e => handleChange('llegada', 'direccion', e.target.value)} className={inputStyles} required /></div>
                                     </div>
+                                    {/* --- FIN DE LA CORRECCIÓN --- */}
                                 </section>
 
                                 {formData.modTraslado === '01' && (
