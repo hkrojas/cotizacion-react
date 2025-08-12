@@ -97,20 +97,19 @@ const GuiasPage = () => {
     const [loadingDestinatario, setLoadingDestinatario] = useState(false);
     const [loadingConductor, setLoadingConductor] = useState(false);
 
-    // --- INICIO DE LA CORRECCIÓN: Se cambia 'ubigeo' por 'ubigueo' ---
     const [formData, setFormData] = useState({
         destinatario: { tipoDoc: '6', numDoc: '', rznSocial: '' },
         codTraslado: '01',
         modTraslado: '02',
+        // --- SOLUCIÓN: Usar la fecha actual ---
         fecTraslado: new Date().toISOString().split('T')[0],
         pesoTotal: 1.0,
-        partida: { ubigeo: '150101', direccion: user?.business_address || '' },
-        llegada: { ubigeo: '', direccion: '' },
+        partida: { ubigueo: '150101', direccion: user?.business_address || '' },
+        llegada: { ubigueo: '', direccion: '' },
         transportista: { tipoDoc: '6', numDoc: '', rznSocial: '', placa: '' },
         conductor: { tipo: 'Principal', tipoDoc: '1', numDoc: '', nombres: '', apellidos: '', licencia: '' },
         bienes: [{ descripcion: '', cantidad: 1, unidad: 'NIU' }]
     });
-    // --- FIN DE LA CORRECCIÓN ---
 
     useEffect(() => {
         if (user?.business_address) {
@@ -170,11 +169,26 @@ const GuiasPage = () => {
         const { numDoc } = formData.conductor;
         setLoadingConductor(true);
         await handleConsultarDocumento('DNI', numDoc, (data) => {
+            // La API devuelve: "NOMBRES APELLIDO_PATERNO APELLIDO_MATERNO"
             const nombreCompleto = data.nombre.split(' ');
-            const nombres = nombreCompleto.slice(0, 2).join(' '); 
-            const apellidos = nombreCompleto.slice(2).join(' ');
-            handleChange('conductor', 'nombres', nombres);
-            handleChange('conductor', 'apellidos', apellidos);
+            if (nombreCompleto.length >= 3) {
+                const apellidoMaterno = nombreCompleto.pop();
+                const apellidoPaterno = nombreCompleto.pop();
+                const nombres = nombreCompleto.join(' ');
+                
+                handleChange('conductor', 'nombres', nombres);
+                handleChange('conductor', 'apellidos', `${apellidoPaterno} ${apellidoMaterno}`);
+            } else if (nombreCompleto.length === 2) {
+                // Fallback para nombres con solo 1 apellido
+                const apellidos = nombreCompleto.pop();
+                const nombres = nombreCompleto.join(' ');
+                handleChange('conductor', 'nombres', nombres);
+                handleChange('conductor', 'apellidos', apellidos);
+            } else {
+                // Fallback para nombres con una sola palabra
+                handleChange('conductor', 'nombres', data.nombre);
+                handleChange('conductor', 'apellidos', '');
+            }
         });
         setLoadingConductor(false);
     };
@@ -274,12 +288,10 @@ const GuiasPage = () => {
 
                                 <section>
                                     <h3 className="text-lg font-semibold border-b pb-2 mb-4 dark:text-gray-200 dark:border-gray-600">Direcciones</h3>
-                                    {/* --- INICIO DE LA CORRECCIÓN: Se cambia 'ubigeo' por 'ubigueo' en los inputs --- */}
                                     <div className="grid md:grid-cols-2 gap-6">
                                         <div><h4 className="font-medium mb-2 dark:text-gray-200">Punto de Partida</h4><input placeholder="Ubigeo Partida" value={formData.partida.ubigueo} onChange={e => handleChange('partida', 'ubigueo', e.target.value)} className={inputStyles} required /><input placeholder="Dirección Partida" value={formData.partida.direccion} onChange={e => handleChange('partida', 'direccion', e.target.value)} className={inputStyles} required /></div>
                                         <div><h4 className="font-medium mb-2 dark:text-gray-200">Punto de Llegada</h4><input placeholder="Ubigeo Llegada" value={formData.llegada.ubigueo} onChange={e => handleChange('llegada', 'ubigueo', e.target.value)} className={inputStyles} required /><input placeholder="Dirección Llegada" value={formData.llegada.direccion} onChange={e => handleChange('llegada', 'direccion', e.target.value)} className={inputStyles} required /></div>
                                     </div>
-                                    {/* --- FIN DE LA CORRECCIÓN --- */}
                                 </section>
 
                                 {formData.modTraslado === '01' && (
@@ -305,6 +317,10 @@ const GuiasPage = () => {
                                         <div className="grid md:grid-cols-2 gap-4 mt-4">
                                             <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombres Conductor</label><input placeholder="Nombres" value={formData.conductor.nombres} onChange={e => handleChange('conductor', 'nombres', e.target.value)} className={inputStyles} required /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Apellidos Conductor</label><input placeholder="Apellidos" value={formData.conductor.apellidos} onChange={e => handleChange('conductor', 'apellidos', e.target.value)} className={inputStyles} required /></div>
+                                        </div>
+                                        <div className="mt-4 md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">N° de Licencia</label>
+                                            <input placeholder="Ej: Q12345678" value={formData.conductor.licencia} onChange={e => handleChange('conductor', 'licencia', e.target.value)} className={inputStyles} required />
                                         </div>
                                     </section>
                                 )}

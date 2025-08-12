@@ -77,14 +77,12 @@ const RegisterPage = () => {
         
         setStrengthScore(score);
         
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Usamos .trim() para eliminar espacios en blanco antes de comparar
+        // SOLUCIÓN: Se usa .trim() para eliminar espacios en blanco antes de comparar
         if (confirmPassword && password.trim() !== confirmPassword.trim()) {
             newErrors.match = 'Las contraseñas no coinciden.';
         } else {
             delete newErrors.match;
         }
-        // --- FIN DE LA CORRECCIÓN ---
         setErrors(newErrors);
 
     }, [password, confirmPassword]);
@@ -93,8 +91,7 @@ const RegisterPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // --- CORRECCIÓN ADICIONAL ---
-        // También usamos .trim() en la validación final
+        // SOLUCIÓN: También se usa .trim() en la validación final
         if (password.trim() !== confirmPassword.trim()) {
             addToast('Las contraseñas no coinciden.', 'error');
             return;

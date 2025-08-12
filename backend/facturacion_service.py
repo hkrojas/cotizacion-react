@@ -175,6 +175,22 @@ def convert_data_to_guia_payload(guia_data: schemas.GuiaRemisionCreateAPI, user:
         }
     }
     
+    motivos_traslado = {
+        "01": "VENTA",
+        "14": "VENTA SUJETA A CONFIRMACION DEL COMPRADOR",
+        "04": "TRASLADO ENTRE ESTABLECIMIENTOS DE LA MISMA EMPRESA",
+        "18": "TRASLADO EMISOR ITINERANTE CP",
+        "08": "IMPORTACION",
+        "09": "EXPORTACION",
+    }
+    descripcion_traslado = motivos_traslado.get(guia_data.codTraslado, "OTROS")
+
+    # --- SOLUCIÓN: Se corrige el formato de la fecha de traslado ---
+    # La API espera el formato completo ISO 8601 con zona horaria.
+    fecha_traslado_dt = datetime.combine(guia_data.fecTraslado, datetime.min.time())
+    fecha_traslado_final = fecha_traslado_dt.replace(tzinfo=peru_tz).strftime('%Y-%m-%dT%H:%M:%S%z')
+    fecha_traslado_final = fecha_traslado_final[:-2] + ':' + fecha_traslado_final[-2:]
+
     payload = {
         "version": "2022",
         "tipoDoc": "09",
@@ -186,8 +202,8 @@ def convert_data_to_guia_payload(guia_data: schemas.GuiaRemisionCreateAPI, user:
         "envio": {
             "modTraslado": guia_data.modTraslado,
             "codTraslado": guia_data.codTraslado,
-            "desTraslado": "VENTA",
-            "fecTraslado": guia_data.fecTraslado.isoformat(),
+            "desTraslado": descripcion_traslado,
+            "fecTraslado": fecha_traslado_final, # Se usa la fecha con formato corregido
             "pesoTotal": float(guia_data.pesoTotal),
             "undPesoTotal": "KGM",
             "partida": guia_data.partida.model_dump(),
@@ -198,13 +214,24 @@ def convert_data_to_guia_payload(guia_data: schemas.GuiaRemisionCreateAPI, user:
 
     if guia_data.modTraslado == "01": # Transporte Público
         if guia_data.transportista:
-            payload["envio"]["transportista"] = guia_data.transportista.model_dump()
+            transportista_data = {k: v for k, v in guia_data.transportista.model_dump().items() if v}
+            if transportista_data:
+                 payload["envio"]["transportista"] = transportista_data
+            else:
+                raise FacturacionException("Los datos del transportista son requeridos para transporte público.")
     elif guia_data.modTraslado == "02": # Transporte Privado
         if guia_data.conductor:
-            payload["envio"]["choferes"] = [guia_data.conductor.model_dump()]
+             payload["envio"]["choferes"] = [guia_data.conductor.model_dump()]
         if guia_data.transportista and guia_data.transportista.placa:
             payload["envio"]["vehiculo"] = {"placa": guia_data.transportista.placa}
+        else:
+            raise FacturacionException("La placa del vehículo es requerida para transporte privado.")
     
+    # --- SOLUCIÓN: Se añade un print para depurar el payload final ---
+    print("--- PAYLOAD DE GUÍA DE REMISIÓN A ENVIAR ---")
+    print(json.dumps(payload, indent=4))
+    print("-----------------------------------------")
+
     return payload
 
 def send_guia_remision(token: str, payload: dict) -> dict:
@@ -215,14 +242,14 @@ def send_guia_remision(token: str, payload: dict) -> dict:
         if response.status_code >= 400:
             try:
                 error_data = response.json()
-                print("Error detallado de la API:", json.dumps(error_data, indent=2))
+                print("Error detallado de la API de Guías:", json.dumps(error_data, indent=2))
                 if isinstance(error_data, list):
-                    error_message = "; ".join([f"{err.get('field')}: {err.get('message')}" for err in error_data])
+                    error_message = "; ".join([f"Campo '{err.get('field')}': {err.get('message')}" for err in error_data])
                 else:
                     error_message = error_data.get('message') or error_data.get('error') or str(error_data)
             except json.JSONDecodeError:
                 error_message = response.text
-            raise FacturacionException(f"Error de la API: {error_message}")
+            raise FacturacionException(f"Error {response.status_code} de la API: {error_message}")
         
         return response.json()
     except requests.exceptions.RequestException as e:

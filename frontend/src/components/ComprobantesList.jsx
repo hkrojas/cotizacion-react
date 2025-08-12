@@ -27,6 +27,7 @@ const ComprobanteDetailsModal = ({ comprobante, onClose, token }) => {
 
             if (!response.ok) {
                 const errData = await response.json();
+                // SOLUCIÓN: Se usa el `detail` del error para un mensaje más claro.
                 throw new Error(errData.detail || `Error al descargar ${docType.toUpperCase()}`);
             }
 
@@ -112,8 +113,6 @@ const ComprobantesList = ({ tipoDoc, refreshTrigger }) => {
             setLoading(true);
             setError('');
             try {
-                // --- CORRECCIÓN CLAVE ---
-                // Se construye la URL con el parámetro de filtro `tipo_doc`
                 const url = new URL(`${API_URL}/comprobantes/`);
                 if (tipoDoc) {
                     url.searchParams.append('tipo_doc', tipoDoc);
@@ -129,7 +128,7 @@ const ComprobantesList = ({ tipoDoc, refreshTrigger }) => {
             finally { setLoading(false); }
         };
         fetchComprobantes();
-    }, [token, tipoDoc, refreshTrigger]); // Se añade `tipoDoc` a las dependencias del efecto
+    }, [token, tipoDoc, refreshTrigger]);
 
     const getCurrencySymbol = (moneda) => (moneda === 'PEN' ? 'S/' : '$');
     const formatDate = (dateString) => new Date(dateString).toLocaleDateString('es-ES');

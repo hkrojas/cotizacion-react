@@ -166,19 +166,17 @@ class DestinatarioGuia(BaseModel):
     rznSocial: str
 
 class DireccionGuia(BaseModel):
-    # --- CORRECCIÓN ---
-    # La API espera 'ubigueo' en lugar de 'ubigeo'
     ubigueo: str
     direccion: str
 
 class ConductorGuia(BaseModel):
-    # Campo obligatorio que faltaba
     tipo: str = "Principal"
     tipoDoc: str
     numDoc: str
     nombres: str
     apellidos: str
-    licencia: Optional[str] = None
+    # --- SOLUCIÓN: Se cambia el campo de licencia a obligatorio ---
+    licencia: str
 
 class TransportistaGuia(BaseModel):
     tipoDoc: Optional[str] = None
